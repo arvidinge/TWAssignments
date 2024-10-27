@@ -297,6 +297,19 @@ function TWA.loadTemplate(template, load)
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "LoadTemplate=" .. template, "RAID")
 end
 
+-- ppl you regularly raid with, that you want to be able to assign before they join the raid
+TWA.regulars = {
+    ['warrior'] = {},
+    ['paladin'] = {},
+    ['druid'] = {},
+    ['warlock'] = {},
+    ['mage'] = {},
+    ['priest'] = {},
+    ['rogue'] = {},
+    ['shaman'] = {},
+    ['hunter'] = {},
+}
+
 --default
 TWA.raid = {
     ['warrior'] = {},
@@ -400,78 +413,82 @@ TWA.groups = {
 }
 
 TWA:SetScript("OnEvent", function()
-    if event then
-        if event == "ADDON_LOADED" and arg1 == "TWAssignments" then
-            twaprint("TWA Loaded")
-            if not TWA_PRESETS then
-                TWA_PRESETS = {}
-            end
-            if not TWA_DATA then
-                TWA_DATA = {
-                    [1] = { '-', '-', '-', '-', '-', '-', '-' },
-                }
-                TWA.data = TWA_DATA
-            end
+    if not event then return end
+
+    if event == "ADDON_LOADED" and arg1 == "TWAssignments" then
+        twaprint("TWA Loaded")
+        if not TWA_PRESETS then
+            TWA_PRESETS = {}
+        end
+        if not TWA_DATA then
+            TWA_DATA = {
+                [1] = { '-', '-', '-', '-', '-', '-', '-' },
+            }
             TWA.data = TWA_DATA
-            TWA.fillRaidData()
-            TWA.PopulateTWA()
-            tinsert(UISpecialFrames, "TWA_Main") --makes window close with Esc key
         end
-        if event == "RAID_ROSTER_UPDATE" then
-            TWA.fillRaidData()
-            TWA.PopulateTWA()
-        end
-        if event == 'CHAT_MSG_ADDON' and arg1 == "TWA" then
-            twadebug(arg4 .. ' says: ' .. arg2)
-            TWA.handleSync(arg1, arg2, arg3, arg4)
-        end
-        if event == 'CHAT_MSG_ADDON' and arg1 == "QH" then
-            TWA.handleQHSync(arg1, arg2, arg3, arg4)
-        end
-        if event == 'CHAT_MSG_WHISPER' then
-            if arg1 == 'heal' then
-                local lineToSend = ''
-                for _, row in next, TWA.data do
-                    local mark = ''
-                    local tank = ''
-                    for i, cell in next, row do
-                        if i == 1 then
-                            mark = cell
-                            tank = mark
+        TWA.data = TWA_DATA
+        TWA.fillRaidData()
+        TWA.PopulateTWA()
+        tinsert(UISpecialFrames, "TWA_Main") --makes window close with Esc key
+    end
+
+    if event == "RAID_ROSTER_UPDATE" then
+        TWA.fillRaidData()
+        TWA.PopulateTWA()
+    end
+
+    if event == 'CHAT_MSG_ADDON' and arg1 == "TWA" then
+        twadebug(arg4 .. ' says: ' .. arg2)
+        TWA.handleSync(arg1, arg2, arg3, arg4)
+    end
+
+    if event == 'CHAT_MSG_ADDON' and arg1 == "QH" then
+        TWA.handleQHSync(arg1, arg2, arg3, arg4)
+    end
+
+    if event == 'CHAT_MSG_WHISPER' then
+        if arg1 == 'heal' then
+            local lineToSend = ''
+            for _, row in next, TWA.data do
+                local mark = ''
+                local tank = ''
+                for i, cell in next, row do
+                    if i == 1 then
+                        mark = cell
+                        tank = mark
+                    end
+                    if i == 2 or i == 3 or i == 4 then
+                        if cell ~= '-' then
+                            tank = ''
                         end
+                    end
+                    if i == 2 or i == 3 or i == 4 then
+                        if cell ~= '-' then
+                            tank = tank .. cell .. ' '
+                        end
+                    end
+                    if arg2 == cell then
                         if i == 2 or i == 3 or i == 4 then
-                            if cell ~= '-' then
-                                tank = ''
+                            if lineToSend == '' then
+                                lineToSend = 'You are assigned to ' .. mark
+                            else
+                                lineToSend = lineToSend .. ' and ' .. mark
                             end
                         end
-                        if i == 2 or i == 3 or i == 4 then
-                            if cell ~= '-' then
-                                tank = tank .. cell .. ' '
-                            end
-                        end
-                        if arg2 == cell then
-                            if i == 2 or i == 3 or i == 4 then
-                                if lineToSend == '' then
-                                    lineToSend = 'You are assigned to ' .. mark
-                                else
-                                    lineToSend = lineToSend .. ' and ' .. mark
-                                end
-                            end
-                            if i == 5 or i == 6 or i == 7 then
-                                if lineToSend == '' then
-                                    lineToSend = 'You are assigned to Heal ' .. tank
-                                else
-                                    lineToSend = lineToSend .. ' and ' .. tank
-                                end
+                        if i == 5 or i == 6 or i == 7 then
+                            if lineToSend == '' then
+                                lineToSend = 'You are assigned to Heal ' .. tank
+                            else
+                                lineToSend = lineToSend .. ' and ' .. tank
                             end
                         end
                     end
                 end
-                if lineToSend == '' then
-                    ChatThrottleLib:SendChatMessage("BULK", "TWA", 'You are not assigned.', "WHISPER", "Common", arg2);
-                else
-                    ChatThrottleLib:SendChatMessage("BULK", "TWA", lineToSend, "WHISPER", "Common", arg2);
-                end
+            end
+            if lineToSend == '' then
+                ChatThrottleLib:SendChatMessage("BULK", "TWA", 'You are not assigned.', "WHISPER", "Common", arg2);
+            else
+                ChatThrottleLib:SendChatMessage("BULK", "TWA", lineToSend, "WHISPER", "Common", arg2);
             end
         end
     end
@@ -501,6 +518,7 @@ function TWA.fillRaidData()
         ['shaman'] = {},
         ['hunter'] = {},
     }
+    -- current raid members
     for i = 0, GetNumRaidMembers() do
         if GetRaidRosterInfo(i) then
             local name, _, _, _, _, _, z = GetRaidRosterInfo(i);
@@ -510,6 +528,7 @@ function TWA.fillRaidData()
             table.sort(TWA.raid[unitClass])
         end
     end
+    -- regulars list (see TWA.regulars)
 end
 
 function TWA.isPlayerOffline(name)
