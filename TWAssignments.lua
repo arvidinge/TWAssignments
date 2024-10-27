@@ -12,7 +12,7 @@ local TWATemplates = CreateFrame('Frame', 'TWATemplates', UIParent, 'UIDropDownM
 function twaprint(a)
     if a == nil then
         DEFAULT_CHAT_FRAME:AddMessage('|cff69ccf0[TWA]|cff0070de:' ..
-        time() .. '|cffffffff attempt to print a nil value.')
+            time() .. '|cffffffff attempt to print a nil value.')
         return false
     end
     DEFAULT_CHAT_FRAME:AddMessage("|cff69ccf0[TWA] |cffffffff" .. a)
@@ -24,7 +24,7 @@ end
 
 function twadebug(a)
     --    if not TWLC_DEBUG then return end
-    if me == 'Kzktst' or me == 'Xerrtwo' then
+    if me == 'Kzktst' or me == 'Xerrtwo' or me == 'Tantomon' or me == 'Gergrutaa' then
         twaprint('|cff0070de[TWADEBUG:' .. time() .. ']|cffffffff[' .. a .. ']')
     end
 end
@@ -298,6 +298,32 @@ function TWA.loadTemplate(template, load)
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "LoadTemplate=" .. template, "RAID")
 end
 
+
+--testing
+-- TWA.raid = {
+--    ['warrior'] = { 'Smultron', 'Jeff', 'Reis', 'Mesmorc' },
+--    ['paladin'] = { 'Paleddin', 'Laughadin' },
+--    ['druid'] = { 'Kashchada', 'Faralynn', 'Lulzer' },
+--    ['warlock'] = { 'Baba', 'Furry', 'Faust' },
+--    ['mage'] = { 'Momo', 'Trepp', 'Linette' },
+--    ['priest'] = { 'Er', 'Dispatch', 'Morrgoth' },
+--    ['rogue'] = { 'Tyrelys', 'Smersh', 'Tonysoprano' },
+--    ['shaman'] = { 'Ilmane', 'Buffalo', 'Cloudburst' },
+--    ['hunter'] = { 'Chlo', 'Zteban', 'Ruari' },
+-- }
+-- TWA.TESTregulars = {
+--     ['warrior'] = {},
+--     ['paladin'] = { "ChuckTesta" },
+--     ['druid'] = {},
+--     ['warlock'] = {},
+--     ['mage'] = {},
+--     ['priest'] = {},
+--     ['rogue'] = {},
+--     ['shaman'] = {},
+--     ['hunter'] = {},
+-- }
+-- TWA.regulars = TWA.TESTregulars
+
 -- ppl you regularly raid with, that you want to be able to assign before they join the raid
 TWA.regulars = {
     ['warrior'] = {},
@@ -322,31 +348,6 @@ TWA.raid = {
     ['rogue'] = {},
     ['shaman'] = {},
     ['hunter'] = {},
-}
-
---testing
---TWA.raid = {
---    ['warrior'] = { 'Smultron', 'Jeff', 'Reis', 'Mesmorc' },
---    ['paladin'] = { 'Paleddin', 'Laughadin' },
---    ['druid'] = { 'Kashchada', 'Faralynn', 'Lulzer' },
---    ['warlock'] = { 'Baba', 'Furry', 'Faust' },
---    ['mage'] = { 'Momo', 'Trepp', 'Linette' },
---    ['priest'] = { 'Er', 'Dispatch', 'Morrgoth' },
---    ['rogue'] = { 'Tyrelys', 'Smersh', 'Tonysoprano' },
---    ['shaman'] = { 'Ilmane', 'Buffalo', 'Cloudburst' },
---    ['hunter'] = { 'Chlo', 'Zteban', 'Ruari' },
---}
-
-TWA.classes = {
-    ['Warriors'] = 'warrior',
-    ['Paladins'] = 'paladin',
-    ['Druids'] = 'druid',
-    ['Warlocks'] = 'warlock',
-    ['Mages'] = 'mage',
-    ['Priests'] = 'priest',
-    ['Rogues'] = 'rogue',
-    ['Shamans'] = 'shaman',
-    ['Hunters'] = 'hunter',
 }
 
 TWA.classColors = {
@@ -506,6 +507,16 @@ function TWA.markOrPlayerUsed(markOrPlayer)
     return false
 end
 
+table.contains = function(tbl, value)
+    for i = 1, table.getn(tbl) do
+        if (tbl[i] == value) then
+            return true
+        end
+    end
+    return false
+end
+
+
 function TWA.fillRaidData()
     twadebug('fill raid data')
     TWA.raid = {
@@ -530,6 +541,14 @@ function TWA.fillRaidData()
         end
     end
     -- regulars list (see TWA.regulars)
+    for class, names in pairs(TWA.regulars) do
+        for _, name in pairs(names) do
+            if not table.contains(TWA.raid[class], name) then
+                table.insert(TWA.raid[class], name)
+            end
+            table.sort(TWA.raid[class])
+        end
+    end
 end
 
 function TWA.isPlayerOffline(name)
@@ -544,7 +563,7 @@ function TWA.isPlayerOffline(name)
     return false
 end
 
-function TWA.handleSync(pre, t, ch, sender)
+function TWA.handleSync(_, t, _, sender)
     if string.find(t, 'LoadTemplate=', 1, true) then
         local tempEx = string.split(t, '=')
         if not tempEx[2] then
@@ -1445,7 +1464,20 @@ function Reset_OnClick()
         twaprint("You need to be a raid leader or assistant to do that")
         return
     end
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "Reset", "RAID")
+    
+    StaticPopupDialogs["TWA_RESET_CONFIRM"] = {
+        text = "Are you sure you want to reset TWA data?",
+        button1 = "Reset",
+        button2 = "Cancel",
+        OnAccept = function()
+            ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "Reset", "RAID")
+        end,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        preferredIndex = 3, -- avoid some UI taint, see http://www.wowace.com/announcements/how-to-avoid-some-ui-taint/
+    }
+    StaticPopup_Show("TWA_RESET_CONFIRM")
 end
 
 function TWA.Reset()
