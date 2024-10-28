@@ -314,57 +314,44 @@ end
 --    ['shaman'] = { 'Ilmane', 'Buffalo', 'Cloudburst' },
 --    ['hunter'] = { 'Chlo', 'Zteban', 'Ruari' },
 -- }
-TWA.TESTroster = {
-    ['warrior'] = {},
-    ['paladin'] = { "ChuckTesta" },
-    ['druid'] = {},
-    ['warlock'] = {},
-    ['mage'] = {},
-    ['priest'] = {},
-    ['rogue'] = {},
-    ['shaman'] = {},
-    ['hunter'] = {},
+
+TWA.roster = {
+    ['druid'] = { expanded = false, names = {} },
+    ['hunter'] = { expanded = false, names = {} },
+    ['mage'] = { expanded = false, names = {} },
+    ['paladin'] = { expanded = false, names = {} },
+    ['priest'] = { expanded = false, names = {} },
+    ['rogue'] = { expanded = false, names = {} },
+    ['shaman'] = { expanded = false, names = {} },
+    ['warlock'] = { expanded = false, names = {} },
+    ['warrior'] = { expanded = false, names = {} },
 }
-
-TWA.roster = TWA.TESTroster
-
-
--- ppl you regularly raid with, that you want to be able to assign before they join the raid
--- TWA.favorites = {
---     ['warrior'] = {},
---     ['paladin'] = {},
---     ['druid'] = {},
---     ['warlock'] = {},
---     ['mage'] = {},
---     ['priest'] = {},
---     ['rogue'] = {},
---     ['shaman'] = {},
---     ['hunter'] = {},
--- }
+TWA.RosterSectionBaseHeight = 30;
+TWA.RosterSectionEntryHeight = 20;
 
 --default
 TWA.raid = {
-    ['warrior'] = {},
-    ['paladin'] = {},
     ['druid'] = {},
-    ['warlock'] = {},
+    ['hunter'] = {},
     ['mage'] = {},
+    ['paladin'] = {},
     ['priest'] = {},
     ['rogue'] = {},
     ['shaman'] = {},
-    ['hunter'] = {},
+    ['warlock'] = {},
+    ['warrior'] = {},
 }
 
 TWA.classColors = {
-    ["warrior"] = { r = 0.78, g = 0.61, b = 0.43, c = "|cffc79c6e" },
-    ["mage"] = { r = 0.41, g = 0.8, b = 0.94, c = "|cff69ccf0" },
-    ["rogue"] = { r = 1, g = 0.96, b = 0.41, c = "|cfffff569" },
     ["druid"] = { r = 1, g = 0.49, b = 0.04, c = "|cffff7d0a" },
     ["hunter"] = { r = 0.67, g = 0.83, b = 0.45, c = "|cffabd473" },
-    ["shaman"] = { r = 0.14, g = 0.35, b = 1.0, c = "|cff0070de" },
-    ["priest"] = { r = 1, g = 1, b = 1, c = "|cffffffff" },
-    ["warlock"] = { r = 0.58, g = 0.51, b = 0.79, c = "|cff9482c9" },
+    ["mage"] = { r = 0.41, g = 0.8, b = 0.94, c = "|cff69ccf0" },
     ["paladin"] = { r = 0.96, g = 0.55, b = 0.73, c = "|cfff58cba" },
+    ["priest"] = { r = 1, g = 1, b = 1, c = "|cffffffff" },
+    ["rogue"] = { r = 1, g = 0.96, b = 0.41, c = "|cfffff569" },
+    ["shaman"] = { r = 0.14, g = 0.35, b = 1.0, c = "|cff0070de" },
+    ["warlock"] = { r = 0.58, g = 0.51, b = 0.79, c = "|cff9482c9" },
+    ["warrior"] = { r = 0.78, g = 0.61, b = 0.43, c = "|cffc79c6e" },
 }
 
 TWA.marks = {
@@ -547,7 +534,7 @@ function TWA.fillRaidData()
     end
     -- roster list (see TWA.roster)
     for class, names in pairs(TWA.roster) do
-        for _, name in pairs(names) do
+        for _, name in pairs(names.names) do
             if not table.contains(TWA.raid[class], name) then
                 table.insert(TWA.raid[class], name)
             end
@@ -1528,9 +1515,16 @@ end
 
 function ScrollframeOnSizeChanged(frame, width, height)
     frame:GetScrollChild():SetWidth(width)
+    frame:GetScrollChild():SetHeight(height)
 end
 
--- function TWABuildClassSection
+function TWAHandleRosterExpandClick(class)
+    if TWA.roster[class].expanded then
+        -- collapse it
+    else
+        -- expand it
+    end
+end
 
 TWA.rosterListBuilt = false;
 function TWABuildRosterList()
@@ -1546,24 +1540,65 @@ function TWABuildRosterList()
         insets = { left = 4, right = 3, top = 4, bottom = 3 }
     }
 
-    local rosterFrame = CreateFrame("Frame", nil, rosterFrame);
-    rosterFrame:SetPoint("TopLeft", rosterFrame, "TopLeft", 10, -30)
-    rosterFrame:SetPoint("BottomRight", rosterFrame, "BottomRight", -10, 30)
-    rosterFrame:SetBackdrop(backdrop);
-    rosterFrame:SetBackdropColor(0, 0, 0)
-    rosterFrame:SetBackdropBorderColor(0.4, 0.4, 0.4)
+    local box = CreateFrame("Frame", nil, rosterFrame);
+    box:SetPoint("TopLeft", rosterFrame, "TopLeft", 10, -30)
+    box:SetPoint("BottomRight", rosterFrame, "BottomRight", -10, 30)
+    box:SetBackdrop(backdrop);
+    box:SetBackdropColor(0, 0, 0)
+    box:SetBackdropBorderColor(0.4, 0.4, 0.4)
 
-    local scrollFrame = CreateFrame("ScrollFrame", "TWA_RosterManagerScrollFrame", rosterFrame, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TopLeft", rosterFrame, "TopLeft", 5, -5)
-    scrollFrame:SetPoint("BottomRight", rosterFrame, "BottomRight", -26, 4)
-    scrollFrame:EnableMouse(true)
+    local scroll = CreateFrame("ScrollFrame", "TWA_RosterManagerScrollFrame", box, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TopLeft", box, "TopLeft", 5, -5)
+    scroll:SetPoint("BottomRight", box, "BottomRight", -26, 4)
+    scroll:EnableMouse(true)
 
-    local rosterListContainer = CreateFrame("Frame", "TWA_RosterManagerScrollFrameChild", scrollFrame)
-    rosterListContainer:SetWidth(scrollFrame:GetWidth())
-    scrollFrame:SetScrollChild(rosterListContainer);
-    scrollFrame:SetScript("OnSizeChanged", ScrollframeOnSizeChanged)
+    local child = CreateFrame("Frame", "TWA_RosterManagerScrollFrameChild", scroll)
+    child:SetWidth(scroll:GetWidth())
+
+    scroll:SetScrollChild(child);
+    scroll:SetScript("OnSizeChanged", ScrollframeOnSizeChanged)
+
+    child:SetHeight(500);
+
+    local classes = {}
+    local warriors = TWARoster_BuildClassSection(child, 'warrior')
 
     TWA.rosterListBuilt = true;
+end
+
+function TWARoster_BuildClassSection(container, class)
+    local baseName = 'TWA_RosterClassSection';
+    local backdrop = {
+        bgFile = [[Interface\Tooltips\UI-Tooltip-Background]],
+        edgeFile = [[Interface\Tooltips\UI-Tooltip-Border]],
+        edgeSize = 16,
+        insets = { left = 4, right = 3, top = 4, bottom = 3 }
+    }
+    local classSection = CreateFrame("Frame", baseName .. class, container)
+    classSection:SetPoint("TopLeft", container, "TopLeft", 0, 0)
+    classSection:SetPoint("TopRight", container, "TopRight", 57, 0)
+    classSection:SetHeight(TWA.RosterSectionBaseHeight);
+    classSection:SetBackdrop(backdrop);
+    classSection:SetBackdropColor(1, 1, 1, 0.05)
+
+    local expandButton = CreateFrame("Button", "blabla", classSection, "UIPanelButtonTemplate2")
+    expandButton:SetPoint("Left", classSection, "Left", 4, 0)
+    expandButton:SetHeight(30);
+    expandButton:SetWidth(25);
+    expandButton:SetText('+')
+    expandButton:SetScript("OnClick", function () TWAHandleRosterExpandClick(class) end)
+
+    local className = classSection:CreateFontString(baseName .. "Header" .. class, "OVERLAY", "GameTooltipText")
+    className:SetTextColor(
+        TWA.classColors[class].r,
+        TWA.classColors[class].g,
+        TWA.classColors[class].b
+    )
+    className:SetPoint("Left", classSection, "Left", 32, 0)
+    local classNameCapitalizedAndPlural = string.upper(string.sub(class, 1, 1)) .. string.sub(class, 2) .. 's'
+    className:SetText(classNameCapitalizedAndPlural)
+
+    return classSection
 end
 
 function TWARoster_OnClick()

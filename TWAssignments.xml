@@ -1,7 +1,6 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/..\FrameXML\UI.xsd">
     <Script file="TWAssignments.lua"/>
-
     <Frame name="TWRow" virtual="true">
         <Size>
             <AbsDimension x="590" y="20"/>
@@ -12,7 +11,6 @@
         <Backdrop bgFile="Interface\Tooltips\UI-Tooltip-Background" tile="true">
         </Backdrop>
         <Frames>
-
             <Button name="$parentCloseRow" inherits="UIPanelCloseButton">
                 <Size>
                     <AbsDimension x="22" y="22"/>
@@ -37,10 +35,8 @@
                     </OnLeave>
                 </Scripts>
             </Button>
-
         </Frames>
     </Frame>
-
     <Frame name="TWCell" virtual="true">
         <Size>
             <AbsDimension x="80" y="20"/>
@@ -76,7 +72,6 @@
             </Layer>
         </Layers>
         <Frames>
-
             <Button name="$parentButton" inherits="UIPanelButtonTemplate" text="">
                 <NormalTexture inherits=""/>
                 <PushedTexture inherits=""/>
@@ -103,7 +98,6 @@
                     </OnLeave>
                 </Scripts>
             </Button>
-
         </Frames>
     </Frame>
 
@@ -153,7 +147,6 @@
                     </OnClick>
                 </Scripts>
             </Button>
-
             <Button name="$parentSavePreset" inherits="UIPanelButtonTemplate2" text="Save">
                 <Size>
                     <AbsDimension x="60" y="20"/>
@@ -171,7 +164,6 @@
                     </OnClick>
                 </Scripts>
             </Button>
-
         </Frames>
         <Scripts>
             <OnLoad>
@@ -192,7 +184,6 @@
             </OnMouseUp>
         </Scripts>
     </Frame>
-
     <Frame name="TWA_Main" hidden="true" toplevel="true" parent="UIParent" movable="true" enableMouse="true" resizable="false">
         <Size>
             <AbsDimension x="605" y="100"/>
@@ -228,7 +219,6 @@
                         </Anchor>
                     </Anchors>
                 </FontString>
-
                 <FontString name="$parentText" inherits="GameFontNormal" text=" ---------------- HEALERS --------------- |" hidden="false">
                     <Anchors>
                         <Anchor point="TOPLEFT">
@@ -241,7 +231,6 @@
             </Layer>
         </Layers>
         <Frames>
-
             <Button name="TWA_Minimap" movable="true" parent="UIParent" enableMouse="true" toplevel="true" frameStrata="LOW">
                 <Size x="33" y="33"/>
                 <Anchors>
@@ -314,7 +303,6 @@
                     </OnEvent>
                 </Scripts>
             </Button>
-
             <!-- + -->
             <Button name="$parentAddLine" inherits="UIPanelButtonTemplate2" text="+">
                 <Size>
@@ -334,7 +322,6 @@
                     </OnClick>
                 </Scripts>
             </Button>
-
             <!-- Announce -->
             <Button name="$parentSpamRaid" inherits="UIPanelButtonTemplate2" text="Announce">
                 <Size>
@@ -354,7 +341,6 @@
                     </OnClick>
                 </Scripts>
             </Button>
-
             <!-- Sync BW -->
             <Button name="$parentSyncBW" inherits="UIPanelButtonTemplate2" text="Sync BW">
                 <Size>
@@ -374,7 +360,6 @@
                     </OnClick>
                 </Scripts>
             </Button>
-
             <!-- Roster -->
             <Button name="$parentRoster" inherits="UIPanelButtonTemplate2" text="Roster">
                 <Size>
@@ -394,7 +379,6 @@
                     </OnClick>
                 </Scripts>
             </Button>
-
             <!-- Load -->
             <Button name="$parentLoadPreset" inherits="UIPanelButtonTemplate2" text="Load">
                 <Size>
@@ -414,7 +398,6 @@
                     </OnClick>
                 </Scripts>
             </Button>
-
             <!-- Save -->
             <Button name="$parentSavePreset" inherits="UIPanelButtonTemplate2" text="Save">
                 <Size>
@@ -434,7 +417,6 @@
                     </OnClick>
                 </Scripts>
             </Button>
-
             <!-- Templates -->
             <Button name="$parentTemplates" inherits="UIPanelButtonTemplate2" text="Templates">
                 <Size>
@@ -453,7 +435,6 @@
                     </OnClick>
                 </Scripts>
             </Button>
-
             <!-- Reset -->
             <Button name="$parentReset" inherits="UIPanelButtonTemplate2" text="|c00ff0000Reset">
                 <Size>
@@ -473,7 +454,6 @@
                     </OnClick>
                 </Scripts>
             </Button>
-
             <!-- X (Close button) -->
             <Button name="$parentClose" inherits="UIPanelCloseButton">
                 <Size>
@@ -493,7 +473,6 @@
                     </OnClick>
                 </Scripts>
             </Button>
-
         </Frames>
         <Scripts>
             <OnLoad>
@@ -514,6 +493,4 @@
             </OnMouseUp>
         </Scripts>
     </Frame>
-
-
 </Ui>
