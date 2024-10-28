@@ -1,6 +1,7 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/..\FrameXML\UI.xsd">
     <Script file="TWAssignments.lua"/>
+    <Script file="TWRosterFrame.lua"/>
     <Frame name="TWRow" virtual="true">
         <Size>
             <AbsDimension x="590" y="20"/>
@@ -317,6 +318,7 @@
                 </Anchors>
                 <Scripts>
                     <OnClick>
+                        TestFn()
                         AddLine_OnClick()
                         CloseDropDownMenus()
                     </OnClick>

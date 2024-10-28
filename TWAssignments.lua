@@ -1,11 +1,10 @@
 -- new features:
 -- confirm on reset
 -- roster
-
 local addonVer = "1.0.0.0" --don't use letters or numbers > 10
 local me = UnitName('player')
 
-local TWA = CreateFrame("Frame")
+TWA = CreateFrame("Frame")
 
 local TWATargetsDropDown = CreateFrame('Frame', 'TWATargetsDropDown', UIParent, 'UIDropDownMenuTemplate')
 local TWATanksDropDown = CreateFrame('Frame', 'TWATanksDropDown', UIParent, 'UIDropDownMenuTemplate')
@@ -316,18 +315,16 @@ end
 -- }
 
 TWA.roster = {
-    ['druid'] = { expanded = false, names = {} },
-    ['hunter'] = { expanded = false, names = {} },
-    ['mage'] = { expanded = false, names = {} },
-    ['paladin'] = { expanded = false, names = {} },
-    ['priest'] = { expanded = false, names = {} },
-    ['rogue'] = { expanded = false, names = {} },
-    ['shaman'] = { expanded = false, names = {} },
-    ['warlock'] = { expanded = false, names = {} },
-    ['warrior'] = { expanded = false, names = {} },
+    ['druid'] = { "ChuckTesta" },
+    ['hunter'] = {},
+    ['mage'] = {},
+    ['paladin'] = {},
+    ['priest'] = {},
+    ['rogue'] = {},
+    ['shaman'] = {},
+    ['warlock'] = {},
+    ['warrior'] = { "AnothaOne", "BigGuyForYou" },
 }
-TWA.RosterSectionBaseHeight = 30;
-TWA.RosterSectionEntryHeight = 20;
 
 --default
 TWA.raid = {
@@ -534,7 +531,7 @@ function TWA.fillRaidData()
     end
     -- roster list (see TWA.roster)
     for class, names in pairs(TWA.roster) do
-        for _, name in pairs(names.names) do
+        for _, name in pairs(names) do
             if not table.contains(TWA.raid[class], name) then
                 table.insert(TWA.raid[class], name)
             end
@@ -1513,112 +1510,9 @@ function TWA.Reset()
     TWA.PopulateTWA()
 end
 
-function ScrollframeOnSizeChanged(frame, width, height)
-    frame:GetScrollChild():SetWidth(width)
-    frame:GetScrollChild():SetHeight(height)
-end
-
-function TWAHandleRosterExpandClick(class)
-    if TWA.roster[class].expanded then
-        -- collapse it
-    else
-        -- expand it
-    end
-end
-
-TWA.rosterListBuilt = false;
-function TWABuildRosterList()
-    -- https://www.wowinterface.com/forums/showthread.php?t=38961
-    if TWA.rosterListBuilt then return end
-
-    local rosterFrame = getglobal('TWA_RosterManager');
-
-    local backdrop = {
-        bgFile = [[Interface\Tooltips\UI-Tooltip-Background]],
-        edgeFile = [[Interface\Tooltips\UI-Tooltip-Border]],
-        edgeSize = 16,
-        insets = { left = 4, right = 3, top = 4, bottom = 3 }
-    }
-
-    local box = CreateFrame("Frame", nil, rosterFrame);
-    box:SetPoint("TopLeft", rosterFrame, "TopLeft", 10, -30)
-    box:SetPoint("BottomRight", rosterFrame, "BottomRight", -10, 30)
-    box:SetBackdrop(backdrop);
-    box:SetBackdropColor(0, 0, 0)
-    box:SetBackdropBorderColor(0.4, 0.4, 0.4)
-
-    local scroll = CreateFrame("ScrollFrame", "TWA_RosterManagerScrollFrame", box, "UIPanelScrollFrameTemplate")
-    scroll:SetPoint("TopLeft", box, "TopLeft", 5, -5)
-    scroll:SetPoint("BottomRight", box, "BottomRight", -26, 4)
-    scroll:EnableMouse(true)
-
-    local child = CreateFrame("Frame", "TWA_RosterManagerScrollFrameChild", scroll)
-    child:SetWidth(scroll:GetWidth())
-
-    scroll:SetScrollChild(child);
-    scroll:SetScript("OnSizeChanged", ScrollframeOnSizeChanged)
-
-    child:SetHeight(500);
-
-    local classes = {}
-    local warriors = TWARoster_BuildClassSection(child, 'warrior')
-
-    TWA.rosterListBuilt = true;
-end
-
-function TWARoster_BuildClassSection(container, class)
-    local baseName = 'TWA_RosterClassSection';
-    local backdrop = {
-        bgFile = [[Interface\Tooltips\UI-Tooltip-Background]],
-        edgeFile = [[Interface\Tooltips\UI-Tooltip-Border]],
-        edgeSize = 16,
-        insets = { left = 4, right = 3, top = 4, bottom = 3 }
-    }
-    local classSection = CreateFrame("Frame", baseName .. class, container)
-    classSection:SetPoint("TopLeft", container, "TopLeft", 0, 0)
-    classSection:SetPoint("TopRight", container, "TopRight", 57, 0)
-    classSection:SetHeight(TWA.RosterSectionBaseHeight);
-    classSection:SetBackdrop(backdrop);
-    classSection:SetBackdropColor(1, 1, 1, 0.05)
-
-    local expandButton = CreateFrame("Button", "blabla", classSection, "UIPanelButtonTemplate2")
-    expandButton:SetPoint("Left", classSection, "Left", 4, 0)
-    expandButton:SetHeight(30);
-    expandButton:SetWidth(25);
-    expandButton:SetText('+')
-    expandButton:SetScript("OnClick", function () TWAHandleRosterExpandClick(class) end)
-
-    local className = classSection:CreateFontString(baseName .. "Header" .. class, "OVERLAY", "GameTooltipText")
-    className:SetTextColor(
-        TWA.classColors[class].r,
-        TWA.classColors[class].g,
-        TWA.classColors[class].b
-    )
-    className:SetPoint("Left", classSection, "Left", 32, 0)
-    local classNameCapitalizedAndPlural = string.upper(string.sub(class, 1, 1)) .. string.sub(class, 2) .. 's'
-    className:SetText(classNameCapitalizedAndPlural)
-
-    return classSection
-end
-
-function TWARoster_OnClick()
-    local frame = getglobal('TWA_RosterManager');
-    TWABuildRosterList()
-
-    if not frame:IsVisible() then
-        getglobal('TWA_RosterManager'):Show()
-    else
-        getglobal('TWA_RosterManager'):Hide()
-    end
-end
-
-function CloseTWARoster_OnClick()
-    getglobal('TWA_RosterManager'):Hide()
-end
-
 function CloseTWA_OnClick()
     getglobal('TWA_Main'):Hide()
-    getglobal('TWA_RosterManager'):Hide()
+    TWA_CloseRosterFrame()
 end
 
 function toggle_TWA_Main()
