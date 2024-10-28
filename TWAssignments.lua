@@ -1,3 +1,7 @@
+-- new features:
+-- confirm on reset
+-- roster
+
 local addonVer = "1.0.0.0" --don't use letters or numbers > 10
 local me = UnitName('player')
 
@@ -298,7 +302,6 @@ function TWA.loadTemplate(template, load)
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "LoadTemplate=" .. template, "RAID")
 end
 
-
 --testing
 -- TWA.raid = {
 --    ['warrior'] = { 'Smultron', 'Jeff', 'Reis', 'Mesmorc' },
@@ -311,23 +314,9 @@ end
 --    ['shaman'] = { 'Ilmane', 'Buffalo', 'Cloudburst' },
 --    ['hunter'] = { 'Chlo', 'Zteban', 'Ruari' },
 -- }
--- TWA.TESTregulars = {
---     ['warrior'] = {},
---     ['paladin'] = { "ChuckTesta" },
---     ['druid'] = {},
---     ['warlock'] = {},
---     ['mage'] = {},
---     ['priest'] = {},
---     ['rogue'] = {},
---     ['shaman'] = {},
---     ['hunter'] = {},
--- }
--- TWA.regulars = TWA.TESTregulars
-
--- ppl you regularly raid with, that you want to be able to assign before they join the raid
-TWA.regulars = {
+TWA.TESTroster = {
     ['warrior'] = {},
-    ['paladin'] = {},
+    ['paladin'] = { "ChuckTesta" },
     ['druid'] = {},
     ['warlock'] = {},
     ['mage'] = {},
@@ -336,6 +325,30 @@ TWA.regulars = {
     ['shaman'] = {},
     ['hunter'] = {},
 }
+
+TWA.roster = TWA.TESTroster
+
+TWA.serializeRoster = function ()
+
+end
+
+TWA.tryParseRoster = function (class, rosterString)
+
+end
+
+
+-- ppl you regularly raid with, that you want to be able to assign before they join the raid
+-- TWA.favorites = {
+--     ['warrior'] = {},
+--     ['paladin'] = {},
+--     ['druid'] = {},
+--     ['warlock'] = {},
+--     ['mage'] = {},
+--     ['priest'] = {},
+--     ['rogue'] = {},
+--     ['shaman'] = {},
+--     ['hunter'] = {},
+-- }
 
 --default
 TWA.raid = {
@@ -540,8 +553,8 @@ function TWA.fillRaidData()
             table.sort(TWA.raid[unitClass])
         end
     end
-    -- regulars list (see TWA.regulars)
-    for class, names in pairs(TWA.regulars) do
+    -- roster list (see TWA.roster)
+    for class, names in pairs(TWA.roster) do
         for _, name in pairs(names) do
             if not table.contains(TWA.raid[class], name) then
                 table.insert(TWA.raid[class], name)
@@ -836,6 +849,15 @@ function TWA.PopulateTWA()
     TWA_DATA = TWA.data
 end
 
+function TWARoster_OnClick()
+    local frame = getglobal('TWA_RosterManager');
+    if not frame:IsVisible() then
+        getglobal('TWA_RosterManager'):Show()
+    else
+        getglobal('TWA_RosterManager'):Hide()
+    end
+end
+
 function Buttoane_OnEnter(id)
     local index = math.floor(id / 100)
 
@@ -854,6 +876,23 @@ function Buttoane_OnLeave(id)
     end
 
     getglobal('TWRow' .. index):SetBackdropColor(0, 0, 0, .2)
+end
+
+function TWAHandleRosterEditBox(editBox)
+    local scrollBar = getglobal(editBox:GetParent():GetName().."ScrollBar")
+    editBox:GetParent():UpdateScrollChildRect();
+
+    local _, max = scrollBar:GetMinMaxValues();
+    scrollBar.prevMaxValue = scrollBar.prevMaxValue or max
+
+    if math.abs(scrollBar.prevMaxValue - scrollBar:GetValue()) <= 1 then
+        -- if scroll is down and add new line then move scroll
+        scrollBar:SetValue(max);
+    end
+    if max ~= scrollBar.prevMaxValue then
+        -- save max value
+        scrollBar.prevMaxValue = max
+    end
 end
 
 function buildTargetsDropdown()
@@ -1223,6 +1262,15 @@ function buildTanksDropdown()
         separator.disabled = true
         UIDropDownMenu_AddButton(separator);
 
+        -- local addRegular = {};
+        -- addRegular.text = "|c0000ff00Add Regular"
+        -- addRegular.disabled = false
+        -- addRegular.isTitle = false
+        -- addRegular.notCheckable = true
+        -- addRegular.func = TWA.addRegularClicked
+        -- addRegular.arg1 = TWA.currentRow * 100 + TWA.currentCell
+        -- UIDropDownMenu_AddButton(addRegular, UIDROPDOWNMENU_MENU_LEVEL);
+
         local clear = {};
         clear.text = "Clear"
         clear.disabled = false
@@ -1464,11 +1512,11 @@ function Reset_OnClick()
         twaprint("You need to be a raid leader or assistant to do that")
         return
     end
-    
+
     StaticPopupDialogs["TWA_RESET_CONFIRM"] = {
-        text = "Are you sure you want to reset TWA data?",
-        button1 = "Reset",
-        button2 = "Cancel",
+        text = "Are you sure you want to clear current assignments?",
+        button1 = ACCEPT,
+        button2 = CANCEL,
         OnAccept = function()
             ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "Reset", "RAID")
         end,
@@ -1497,11 +1545,13 @@ end
 
 function CloseTWA_OnClick()
     getglobal('TWA_Main'):Hide()
+    getglobal('TWA_RosterManager'):Hide()
 end
 
 function toggle_TWA_Main()
     if (getglobal('TWA_Main'):IsVisible()) then
         getglobal('TWA_Main'):Hide()
+        getglobal('TWA_RosterManager'):Hide()
     else
         getglobal('TWA_Main'):Show()
     end

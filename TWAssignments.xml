@@ -1,5 +1,5 @@
-<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://www.blizzard.com/wow/ui/..\FrameXML\UI.xsd">
+<Ui xmlns="http://www.blizzard.com/wow/ui/"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/..\FrameXML\UI.xsd">
     <Script file="TWAssignments.lua"/>
 
     <Frame name="TWRow" virtual="true">
@@ -9,8 +9,7 @@
         <Anchors>
             <Anchor point="TOP"/>
         </Anchors>
-        <Backdrop bgFile="Interface\Tooltips\UI-Tooltip-Background"
-                  tile="true">
+        <Backdrop bgFile="Interface\Tooltips\UI-Tooltip-Background" tile="true">
         </Backdrop>
         <Frames>
 
@@ -49,8 +48,7 @@
         <Anchors>
             <Anchor point="LEFT"/>
         </Anchors>
-        <Backdrop bgFile="Interface\Tooltips\UI-Tooltip-Background"
-                  tile="true">
+        <Backdrop bgFile="Interface\Tooltips\UI-Tooltip-Background" tile="true">
         </Backdrop>
         <Layers>
             <Layer level="OVERLAY">
@@ -109,22 +107,153 @@
         </Frames>
     </Frame>
 
-    <Frame name="TWA_Main" hidden="true" toplevel="true"
-           parent="UIParent" movable="true" enableMouse="true" resizable="false">
+    <Frame name="TWA_RosterManager" hidden="true" toplevel="true" parent="UIParent" movable="true" enableMouse="true" resizable="true">
+        <Size>
+            <AbsDimension x="300" y="400"/>
+        </Size>
+        <Anchors>
+            <Anchor point="CENTER"/>
+        </Anchors>
+        <Backdrop bgFile="Interface\DialogFrame\UI-DialogBox-Background" edgeFile="Interface\DialogFrame\UI-DialogBox-Border" tile="true">
+            <BackgroundInsets>
+                <AbsInset left="2" right="2" top="3" bottom="3"/>
+            </BackgroundInsets>
+            <EdgeSize>
+                <AbsValue val="16"/>
+            </EdgeSize>
+        </Backdrop>
+        <Layers>
+            <Layer level="OVERLAY">
+                <FontString name="$parentText" inherits="GameFontNormal" text="My Roster" hidden="false">
+                    <Anchors>
+                        <Anchor point="TOP">
+                            <Offset>
+                                <AbsDimension x="0" y="-10"/>
+                            </Offset>
+                        </Anchor>
+                    </Anchors>
+                </FontString>
+            </Layer>
+        </Layers>
+        <Frames>
+            <Button name="$parentClose" inherits="UIPanelCloseButton">
+                <Size>
+                    <AbsDimension x="32" y="32"/>
+                </Size>
+                <Anchors>
+                    <Anchor point="TOPRIGHT">
+                        <Offset>
+                            <AbsDimension x="0" y="0"/>
+                        </Offset>
+                    </Anchor>
+                </Anchors>
+                <Scripts>
+                    <OnClick>
+                        CloseTWA_OnClick()
+                        CloseDropDownMenus()
+                    </OnClick>
+                </Scripts>
+            </Button>
+
+            <ScrollFrame name="TWA_RosterManagerScrollFrame" inherits="UIPanelScrollFrameTemplate">
+                <Anchors>
+                    <Anchor point="TOPLEFT">
+                        <Offset>
+                            <AbsDimension x="10" y="-30"/>
+                        </Offset>
+                    </Anchor>
+                    <Anchor point="BOTTOMRIGHT">
+                        <Offset>
+                            <AbsDimension x="-30" y="37"/>
+                        </Offset>
+                    </Anchor>
+                </Anchors>
+                <ScrollChild>
+                    <EditBox name="TWA_RosterManagerEditBox" multiLine="true" autoFocus="false">
+                        <Size>
+                            <AbsDimension x="250" y="330"/>
+                        </Size>
+                        <Anchors>
+                            <Anchor point="TOP">
+                                <Offset>
+                                    <AbsDimension x="0" y="0"/>
+                                </Offset>
+                            </Anchor>
+                            <Anchor point="BOTTOM">
+                                <Offset>
+                                    <AbsDimension x="0" y="0"/>
+                                </Offset>
+                            </Anchor>
+                        </Anchors>
+                        <Scripts>
+                            <OnTextChanged>
+								TWAHandleRosterEditBox(this)
+                                this:SetHeight(330)
+                            </OnTextChanged>
+                            <OnEscapePressed>
+								this:ClearFocus()
+                            </OnEscapePressed>
+                            <OnLoad>
+                            </OnLoad>
+                        </Scripts>
+                        <FontString inherits="ChatFontNormal" />
+                    </EditBox>
+                </ScrollChild>
+            </ScrollFrame>
+
+            <Button name="$parentSavePreset" inherits="UIPanelButtonTemplate2" text="Save">
+                <Size>
+                    <AbsDimension x="60" y="20"/>
+                </Size>
+                <Anchors>
+                    <Anchor point="BOTTOM">
+                        <Offset>
+                            <AbsDimension x="0" y="10"/>
+                        </Offset>
+                    </Anchor>
+                </Anchors>
+                <Scripts>
+                    <OnClick>
+                        message("saved!")
+                    </OnClick>
+                </Scripts>
+            </Button>
+
+        </Frames>
+        <Scripts>
+            <OnLoad>
+                this:RegisterForDrag("LeftButton");
+                this:SetMovable(1);
+                this:SetUserPlaced(true);
+            </OnLoad>
+            <OnDragStart>
+                this:StartMoving();
+                this.isMoving = true;
+            </OnDragStart>
+            <OnDragStop>
+                this:StopMovingOrSizing();
+                this.isMoving = false;
+            </OnDragStop>
+            <OnMouseUp>
+				CloseDropDownMenus()
+            </OnMouseUp>
+        </Scripts>
+    </Frame>
+
+    <Frame name="TWA_Main" hidden="true" toplevel="true" parent="UIParent" movable="true" enableMouse="true" resizable="false">
         <Size>
             <AbsDimension x="605" y="100"/>
         </Size>
         <Anchors>
             <Anchor point="CENTER"/>
         </Anchors>
-        <Backdrop bgFile="Interface\DialogFrame\UI-DialogBox-Background" edgeFile="Interface\DialogFrame\UI-DialogBox-Border"
-                  tile="false">
-                  <BackgroundInsets>
-                    <AbsInset left="2" right="2" top="3" bottom="3"/>
-                </BackgroundInsets>
-                  <EdgeSize>
-                    <AbsValue val="16"/>
-                </EdgeSize>
+        <Backdrop bgFile="Interface\DialogFrame\UI-DialogBox-Background" edgeFile="Interface\DialogFrame\UI-DialogBox-Border" tile="false">
+            <BackgroundInsets>
+                <AbsInset left="2" right="2" top="3" bottom="3"/>
+            </BackgroundInsets>
+            <EdgeSize>
+                <AbsValue val="16"/>
+            </EdgeSize>
         </Backdrop>
         <Layers>
             <Layer level="OVERLAY">
@@ -137,23 +266,21 @@
                         </Anchor>
                     </Anchors>
                 </FontString>
-                <FontString name="$parentText" inherits="GameFontNormal"
-                            text=" ----------------- TANKS -------------------" hidden="false">
+                <FontString name="$parentText" inherits="GameFontNormal" text="| ---------------- TANKS ----------------- | " hidden="false">
                     <Anchors>
                         <Anchor point="TOPLEFT">
                             <Offset>
-                                <AbsDimension x="90" y="-30"/>
+                                <AbsDimension x="86" y="-30"/>
                             </Offset>
                         </Anchor>
                     </Anchors>
                 </FontString>
 
-                <FontString name="$parentText" inherits="GameFontNormal"
-                            text="  -------------------- HEALERS ------------------" hidden="false">
+                <FontString name="$parentText" inherits="GameFontNormal" text=" ---------------- HEALERS --------------- |" hidden="false">
                     <Anchors>
                         <Anchor point="TOPLEFT">
                             <Offset>
-                                <AbsDimension x="330" y="-30"/>
+                                <AbsDimension x="335" y="-30"/>
                             </Offset>
                         </Anchor>
                     </Anchors>
@@ -162,8 +289,7 @@
         </Layers>
         <Frames>
 
-            <Button name="TWA_Minimap" movable="true" parent="UIParent" enableMouse="true" toplevel="true"
-                    frameStrata="LOW">
+            <Button name="TWA_Minimap" movable="true" parent="UIParent" enableMouse="true" toplevel="true" frameStrata="LOW">
                 <Size x="33" y="33"/>
                 <Anchors>
                     <Anchor point="CENTER"/>
@@ -192,38 +318,38 @@
                 <HighlightTexture alphaMode="ADD" file="Interface\Minimap\UI-Minimap-ZoomButton-Highlight"/>
                 <Scripts>
                     <OnLoad>
-                            this:RegisterForClicks("RightButtonUp")
-                            this:RegisterForDrag("LeftButton")
-                            this:SetClampedToScreen(true)
-                            this:RegisterEvent("PLAYER_LOGIN")
+                        this:RegisterForClicks("RightButtonUp")
+                        this:RegisterForDrag("LeftButton")
+                        this:SetClampedToScreen(true)
+                        this:RegisterEvent("PLAYER_LOGIN")
                     </OnLoad>
                     <OnDragStart>
-                            this:LockHighlight()
-                            this:StartMoving()
+                        this:LockHighlight()
+                        this:StartMoving()
                     </OnDragStart>
                     <OnDragStop>
-                            this:UnlockHighlight()
-                            this:StopMovingOrSizing()
-                            TWA_POSITION = {this:GetCenter()} 
+                        this:UnlockHighlight()
+                        this:StopMovingOrSizing()
+                        TWA_POSITION = {this:GetCenter()} 
                     </OnDragStop>
                     <OnEnter>
-                            GameTooltip:SetOwner(this, "ANCHOR_TOPLEFT", 0, 0)
-                            GameTooltip:AddLine('TWAssignments', 1, 1, 1)
-                            GameTooltip:AddLine('Left-click to toggle frame')
-                            --                            GameTooltip:AddLine('Right-click for options')
-                            --                            GameTooltip:AddLine(DPSMate.L["minimapright"], 0.5, 0.5, 0.5)
-                            GameTooltip:Show()
+                        GameTooltip:SetOwner(this, "ANCHOR_TOPLEFT", 0, 0)
+                        GameTooltip:AddLine('TWAssignments', 1, 1, 1)
+                        GameTooltip:AddLine('Left-click to toggle frame')
+                        --                            GameTooltip:AddLine('Right-click for options')
+                        --                            GameTooltip:AddLine(DPSMate.L["minimapright"], 0.5, 0.5, 0.5)
+                        GameTooltip:Show()
                     </OnEnter>
                     <OnLeave>
-                            GameTooltip:Hide()
+                        GameTooltip:Hide()
                     </OnLeave>
                     <OnMouseUp>
-                            if arg1 == "LeftButton" then
-                                toggle_TWA_Main()
-                                --                            else
-                                --                                ShowTWAMinimapDropdown()
-                            end
-                            CloseDropDownMenus()
+                        if arg1 == "LeftButton" then
+                            toggle_TWA_Main()
+                            --                            else
+                            --                                ShowTWAMinimapDropdown()
+                        end
+                        CloseDropDownMenus()
                     </OnMouseUp>
                     <OnEvent>
                         if event then
@@ -236,6 +362,166 @@
                 </Scripts>
             </Button>
 
+            <!-- + -->
+            <Button name="$parentAddLine" inherits="UIPanelButtonTemplate2" text="+">
+                <Size>
+                    <AbsDimension x="30" y="20"/>
+                </Size>
+                <Anchors>
+                    <Anchor point="TOPLEFT">
+                        <Offset>
+                            <AbsDimension x="5" y="-5"/>
+                        </Offset>
+                    </Anchor>
+                </Anchors>
+                <Scripts>
+                    <OnClick>
+                        AddLine_OnClick()
+                        CloseDropDownMenus()
+                    </OnClick>
+                </Scripts>
+            </Button>
+
+            <!-- Announce -->
+            <Button name="$parentSpamRaid" inherits="UIPanelButtonTemplate2" text="Announce">
+                <Size>
+                    <AbsDimension x="80" y="20"/>
+                </Size>
+                <Anchors>
+                    <Anchor point="TOPLEFT">
+                        <Offset>
+                            <AbsDimension x="35" y="-5"/>
+                        </Offset>
+                    </Anchor>
+                </Anchors>
+                <Scripts>
+                    <OnClick>
+                        SpamRaid_OnClick()
+                        CloseDropDownMenus()
+                    </OnClick>
+                </Scripts>
+            </Button>
+
+            <!-- Sync BW -->
+            <Button name="$parentSyncBW" inherits="UIPanelButtonTemplate2" text="Sync BW">
+                <Size>
+                    <AbsDimension x="80" y="20"/>
+                </Size>
+                <Anchors>
+                    <Anchor point="TOPLEFT">
+                        <Offset>
+                            <AbsDimension x="115" y="-5"/>
+                        </Offset>
+                    </Anchor>
+                </Anchors>
+                <Scripts>
+                    <OnClick>
+                        SyncBW_OnClick()
+                        CloseDropDownMenus()
+                    </OnClick>
+                </Scripts>
+            </Button>
+
+            <!-- Roster -->
+            <Button name="$parentRoster" inherits="UIPanelButtonTemplate2" text="Roster">
+                <Size>
+                    <AbsDimension x="80" y="20"/>
+                </Size>
+                <Anchors>
+                    <Anchor point="TOPLEFT">
+                        <Offset>
+                            <AbsDimension x="200" y="-5"/>
+                        </Offset>
+                    </Anchor>
+                </Anchors>
+                <Scripts>
+                    <OnClick>
+                        TWARoster_OnClick()
+                        CloseDropDownMenus()
+                    </OnClick>
+                </Scripts>
+            </Button>
+
+            <!-- Load -->
+            <Button name="$parentLoadPreset" inherits="UIPanelButtonTemplate2" text="Load">
+                <Size>
+                    <AbsDimension x="60" y="20"/>
+                </Size>
+                <Anchors>
+                    <Anchor point="TOPRIGHT">
+                        <Offset>
+                            <AbsDimension x="-240" y="-5"/>
+                        </Offset>
+                    </Anchor>
+                </Anchors>
+                <Scripts>
+                    <OnClick>
+                        LoadPreset_OnClick()
+                        CloseDropDownMenus()
+                    </OnClick>
+                </Scripts>
+            </Button>
+
+            <!-- Save -->
+            <Button name="$parentSavePreset" inherits="UIPanelButtonTemplate2" text="Save">
+                <Size>
+                    <AbsDimension x="60" y="20"/>
+                </Size>
+                <Anchors>
+                    <Anchor point="TOPRIGHT">
+                        <Offset>
+                            <AbsDimension x="-180" y="-5"/>
+                        </Offset>
+                    </Anchor>
+                </Anchors>
+                <Scripts>
+                    <OnClick>
+                        SavePreset_OnClick()
+                        CloseDropDownMenus()
+                    </OnClick>
+                </Scripts>
+            </Button>
+
+            <!-- Templates -->
+            <Button name="$parentTemplates" inherits="UIPanelButtonTemplate2" text="Templates">
+                <Size>
+                    <AbsDimension x="80" y="20"/>
+                </Size>
+                <Anchors>
+                    <Anchor point="TOPRIGHT">
+                        <Offset>
+                            <AbsDimension x="-100" y="-5"/>
+                        </Offset>
+                    </Anchor>
+                </Anchors>
+                <Scripts>
+                    <OnClick>
+                            Templates_OnClick()
+                    </OnClick>
+                </Scripts>
+            </Button>
+
+            <!-- Reset -->
+            <Button name="$parentReset" inherits="UIPanelButtonTemplate2" text="|c00ff0000Reset">
+                <Size>
+                    <AbsDimension x="65" y="20"/>
+                </Size>
+                <Anchors>
+                    <Anchor point="TOPRIGHT">
+                        <Offset>
+                            <AbsDimension x="-28" y="-5"/>
+                        </Offset>
+                    </Anchor>
+                </Anchors>
+                <Scripts>
+                    <OnClick>
+                        Reset_OnClick()
+                        CloseDropDownMenus()
+                    </OnClick>
+                </Scripts>
+            </Button>
+
+            <!-- X (Close button) -->
             <Button name="$parentClose" inherits="UIPanelCloseButton">
                 <Size>
                     <AbsDimension x="32" y="32"/>
@@ -249,139 +535,7 @@
                 </Anchors>
                 <Scripts>
                     <OnClick>
-                            CloseTWA_OnClick()
-                            CloseDropDownMenus()
-                    </OnClick>
-                </Scripts>
-            </Button>
-
-            <Button name="$parentAddLine" inherits="UIPanelButtonTemplate2" text="+">
-                <Size>
-                    <AbsDimension x="30" y="20"/>
-                </Size>
-                <Anchors>
-                    <Anchor point="TOPLEFT">
-                        <Offset>
-                            <AbsDimension x="4" y="-5"/>
-                        </Offset>
-                    </Anchor>
-                </Anchors>
-                <Scripts>
-                    <OnClick>
-                            AddLine_OnClick()
-                            CloseDropDownMenus()
-                    </OnClick>
-                </Scripts>
-            </Button>
-
-            <Button name="$parentReset" inherits="UIPanelButtonTemplate2" text="Reset">
-                <Size>
-                    <AbsDimension x="80" y="20"/>
-                </Size>
-                <Anchors>
-                    <Anchor point="TOPRIGHT">
-                        <Offset>
-                            <AbsDimension x="-30" y="-5"/>
-                        </Offset>
-                    </Anchor>
-                </Anchors>
-                <Scripts>
-                    <OnClick>
-                            Reset_OnClick()
-                            CloseDropDownMenus()
-                    </OnClick>
-                </Scripts>
-            </Button>
-
-            <Button name="$parentSpamRaid" inherits="UIPanelButtonTemplate2" text="= Spam Raid = ">
-                <Size>
-                    <AbsDimension x="100" y="20"/>
-                </Size>
-                <Anchors>
-                    <Anchor point="TOPLEFT">
-                        <Offset>
-                            <AbsDimension x="40" y="-5"/>
-                        </Offset>
-                    </Anchor>
-                </Anchors>
-                <Scripts>
-                    <OnClick>
-                            SpamRaid_OnClick()
-                            CloseDropDownMenus()
-                    </OnClick>
-                </Scripts>
-            </Button>
-
-            <Button name="$parentSyncBW" inherits="UIPanelButtonTemplate2" text="Sync BW">
-                <Size>
-                    <AbsDimension x="80" y="20"/>
-                </Size>
-                <Anchors>
-                    <Anchor point="TOPLEFT">
-                        <Offset>
-                            <AbsDimension x="150" y="-5"/>
-                        </Offset>
-                    </Anchor>
-                </Anchors>
-                <Scripts>
-                    <OnClick>
-                        SyncBW_OnClick()
-                        CloseDropDownMenus()
-                    </OnClick>
-                </Scripts>
-            </Button>
-
-            <Button name="$parentTemplates" inherits="UIPanelButtonTemplate2" text="Templates">
-                <Size>
-                    <AbsDimension x="100" y="20"/>
-                </Size>
-                <Anchors>
-                    <Anchor point="TOPRIGHT">
-                        <Offset>
-                            <AbsDimension x="-120" y="-5"/>
-                        </Offset>
-                    </Anchor>
-                </Anchors>
-                <Scripts>
-                    <OnClick>
-                            Templates_OnClick()
-                    </OnClick>
-                </Scripts>
-            </Button>
-
-            <Button name="$parentSavePreset" inherits="UIPanelButtonTemplate2" text="Save">
-                <Size>
-                    <AbsDimension x="60" y="20"/>
-                </Size>
-                <Anchors>
-                    <Anchor point="TOPRIGHT">
-                        <Offset>
-                            <AbsDimension x="-230" y="-5"/>
-                        </Offset>
-                    </Anchor>
-                </Anchors>
-                <Scripts>
-                    <OnClick>
-                        SavePreset_OnClick()
-                        CloseDropDownMenus()
-                    </OnClick>
-                </Scripts>
-            </Button>
-
-            <Button name="$parentLoadPreset" inherits="UIPanelButtonTemplate2" text="Load">
-                <Size>
-                    <AbsDimension x="60" y="20"/>
-                </Size>
-                <Anchors>
-                    <Anchor point="TOPRIGHT">
-                        <Offset>
-                            <AbsDimension x="-290" y="-5"/>
-                        </Offset>
-                    </Anchor>
-                </Anchors>
-                <Scripts>
-                    <OnClick>
-                        LoadPreset_OnClick()
+                        CloseTWA_OnClick()
                         CloseDropDownMenus()
                     </OnClick>
                 </Scripts>
@@ -390,21 +544,21 @@
         </Frames>
         <Scripts>
             <OnLoad>
-                    this:RegisterForDrag("LeftButton");
-                    this:SetMovable(1);
-                    this:SetUserPlaced(true);
+                this:RegisterForDrag("LeftButton");
+                this:SetMovable(1);
+                this:SetUserPlaced(true);
             </OnLoad>
             <OnDragStart>
-                    this:StartMoving();
-                    this.isMoving = true;
+                this:StartMoving();
+                this.isMoving = true;
             </OnDragStart>
             <OnDragStop>
-                    this:StopMovingOrSizing();
-                    this.isMoving = false;
+                this:StopMovingOrSizing();
+                this.isMoving = false;
             </OnDragStop>
             <OnMouseUp>
 				CloseDropDownMenus()
-			</OnMouseUp>
+            </OnMouseUp>
         </Scripts>
     </Frame>
 
