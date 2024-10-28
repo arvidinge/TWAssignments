@@ -149,57 +149,10 @@
                 </Anchors>
                 <Scripts>
                     <OnClick>
-                        CloseTWA_OnClick()
-                        CloseDropDownMenus()
+                        CloseTWARoster_OnClick()
                     </OnClick>
                 </Scripts>
             </Button>
-
-            <ScrollFrame name="TWA_RosterManagerScrollFrame" inherits="UIPanelScrollFrameTemplate">
-                <Anchors>
-                    <Anchor point="TOPLEFT">
-                        <Offset>
-                            <AbsDimension x="10" y="-30"/>
-                        </Offset>
-                    </Anchor>
-                    <Anchor point="BOTTOMRIGHT">
-                        <Offset>
-                            <AbsDimension x="-30" y="37"/>
-                        </Offset>
-                    </Anchor>
-                </Anchors>
-                <ScrollChild>
-                    <EditBox name="TWA_RosterManagerEditBox" multiLine="true" autoFocus="false">
-                        <Size>
-                            <AbsDimension x="250" y="330"/>
-                        </Size>
-                        <Anchors>
-                            <Anchor point="TOP">
-                                <Offset>
-                                    <AbsDimension x="0" y="0"/>
-                                </Offset>
-                            </Anchor>
-                            <Anchor point="BOTTOM">
-                                <Offset>
-                                    <AbsDimension x="0" y="0"/>
-                                </Offset>
-                            </Anchor>
-                        </Anchors>
-                        <Scripts>
-                            <OnTextChanged>
-								TWAHandleRosterEditBox(this)
-                                this:SetHeight(330)
-                            </OnTextChanged>
-                            <OnEscapePressed>
-								this:ClearFocus()
-                            </OnEscapePressed>
-                            <OnLoad>
-                            </OnLoad>
-                        </Scripts>
-                        <FontString inherits="ChatFontNormal" />
-                    </EditBox>
-                </ScrollChild>
-            </ScrollFrame>
 
             <Button name="$parentSavePreset" inherits="UIPanelButtonTemplate2" text="Save">
                 <Size>

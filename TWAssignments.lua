@@ -328,14 +328,6 @@ TWA.TESTroster = {
 
 TWA.roster = TWA.TESTroster
 
-TWA.serializeRoster = function ()
-
-end
-
-TWA.tryParseRoster = function (class, rosterString)
-
-end
-
 
 -- ppl you regularly raid with, that you want to be able to assign before they join the raid
 -- TWA.favorites = {
@@ -849,15 +841,6 @@ function TWA.PopulateTWA()
     TWA_DATA = TWA.data
 end
 
-function TWARoster_OnClick()
-    local frame = getglobal('TWA_RosterManager');
-    if not frame:IsVisible() then
-        getglobal('TWA_RosterManager'):Show()
-    else
-        getglobal('TWA_RosterManager'):Hide()
-    end
-end
-
 function Buttoane_OnEnter(id)
     local index = math.floor(id / 100)
 
@@ -879,7 +862,7 @@ function Buttoane_OnLeave(id)
 end
 
 function TWAHandleRosterEditBox(editBox)
-    local scrollBar = getglobal(editBox:GetParent():GetName().."ScrollBar")
+    local scrollBar = getglobal(editBox:GetParent():GetName() .. "ScrollBar")
     editBox:GetParent():UpdateScrollChildRect();
 
     local _, max = scrollBar:GetMinMaxValues();
@@ -1541,6 +1524,61 @@ function TWA.Reset()
         [1] = { '-', '-', '-', '-', '-', '-', '-' },
     }
     TWA.PopulateTWA()
+end
+
+function ScrollframeOnSizeChanged(frame, width, height)
+    frame:GetScrollChild():SetWidth(width)
+end
+
+-- function TWABuildClassSection
+
+TWA.rosterListBuilt = false;
+function TWABuildRosterList()
+    -- https://www.wowinterface.com/forums/showthread.php?t=38961
+    if TWA.rosterListBuilt then return end
+
+    local rosterFrame = getglobal('TWA_RosterManager');
+
+    local backdrop = {
+        bgFile = [[Interface\Tooltips\UI-Tooltip-Background]],
+        edgeFile = [[Interface\Tooltips\UI-Tooltip-Border]],
+        edgeSize = 16,
+        insets = { left = 4, right = 3, top = 4, bottom = 3 }
+    }
+
+    local rosterFrame = CreateFrame("Frame", nil, rosterFrame);
+    rosterFrame:SetPoint("TopLeft", rosterFrame, "TopLeft", 10, -30)
+    rosterFrame:SetPoint("BottomRight", rosterFrame, "BottomRight", -10, 30)
+    rosterFrame:SetBackdrop(backdrop);
+    rosterFrame:SetBackdropColor(0, 0, 0)
+    rosterFrame:SetBackdropBorderColor(0.4, 0.4, 0.4)
+
+    local scrollFrame = CreateFrame("ScrollFrame", "TWA_RosterManagerScrollFrame", rosterFrame, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TopLeft", rosterFrame, "TopLeft", 5, -5)
+    scrollFrame:SetPoint("BottomRight", rosterFrame, "BottomRight", -26, 4)
+    scrollFrame:EnableMouse(true)
+
+    local rosterListContainer = CreateFrame("Frame", "TWA_RosterManagerScrollFrameChild", scrollFrame)
+    rosterListContainer:SetWidth(scrollFrame:GetWidth())
+    scrollFrame:SetScrollChild(rosterListContainer);
+    scrollFrame:SetScript("OnSizeChanged", ScrollframeOnSizeChanged)
+
+    TWA.rosterListBuilt = true;
+end
+
+function TWARoster_OnClick()
+    local frame = getglobal('TWA_RosterManager');
+    TWABuildRosterList()
+
+    if not frame:IsVisible() then
+        getglobal('TWA_RosterManager'):Show()
+    else
+        getglobal('TWA_RosterManager'):Hide()
+    end
+end
+
+function CloseTWARoster_OnClick()
+    getglobal('TWA_RosterManager'):Hide()
 end
 
 function CloseTWA_OnClick()
