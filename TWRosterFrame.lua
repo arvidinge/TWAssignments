@@ -13,16 +13,32 @@ local RosterFrameScroll = nil;
 ---@type Frame
 local RosterFrameContainer = nil;
 
-local RosterClassSections = {
-  ['druid'] = { expandButton = nil, frame = nil, expanded = false, frames = {} },
-  ['hunter'] = { expandButton = nil, frame = nil, expanded = false, frames = {} },
-  ['mage'] = { expandButton = nil, frame = nil, expanded = false, frames = {} },
-  ['paladin'] = { expandButton = nil, frame = nil, expanded = false, frames = {} },
-  ['priest'] = { expandButton = nil, frame = nil, expanded = false, frames = {} },
-  ['rogue'] = { expandButton = nil, frame = nil, expanded = false, frames = {} },
-  ['shaman'] = { expandButton = nil, frame = nil, expanded = false, frames = {} },
-  ['warlock'] = { expandButton = nil, frame = nil, expanded = false, frames = {} },
-  ['warrior'] = { expandButton = nil, frame = nil, expanded = false, frames = {} },
+---@param frame Frame
+---@param expandButton Button
+---@param addPlayerButton Button
+local function newClassSection(frame, expandButton, addPlayerButton)
+  ---@type ClassSection
+  local classSection = {
+    frame = frame,
+    expandButton = expandButton,
+    addPlayerButton = addPlayerButton,
+    expanded = false,
+    frames = {}
+  }
+  return classSection
+end
+
+---@type table<string, ClassSection|nil>
+local ClassSections = {
+  ['druid'] = nil,
+  ['hunter'] = nil,
+  ['mage'] = nil,
+  ['paladin'] = nil,
+  ['priest'] = nil,
+  ['rogue'] = nil,
+  ['shaman'] = nil,
+  ['warlock'] = nil,
+  ['warrior'] = nil,
 }
 local sortedClassNames = {'druid','hunter','mage','paladin','priest','rogue','shaman','warlock','warrior'}
 
@@ -34,14 +50,9 @@ function TWA_ShowRosterFrame()
   getRosterFrame():Show()
 end
 
-function ScrollframeOnSizeChanged(frame, width, height)
-  frame:GetScrollChild():SetWidth(width)
-  frame:GetScrollChild():SetHeight(height)
-end
-
 function BuildNameFrame(name, class)
   local frameName = "TWA_RosterEntry" .. name;
-  local parent = RosterClassSections[class].frame;
+  local parent = ClassSections[class].frame;
   local frame = CreateFrame("Frame", "TWA_RosterEntry" .. name, parent)
   frame:Hide()
   frame:SetPoint('Right', parent, 'Right', 0, 0)
@@ -61,7 +72,8 @@ function BuildNameFrame(name, class)
 end
 
 function TWAHandleRosterExpandClick(class)
-  local classSection = RosterClassSections[class];
+  local classSection = ClassSections[class];
+  if classSection == nil then twadebug('WTF?!?!') return end
   local names = TWA.roster[class]
 
   if not classSection.expanded then
@@ -86,21 +98,20 @@ function TWAHandleRosterExpandClick(class)
       RosterClassSection_ExpandMargin)
 
     classSection.expanded = true;
+    classSection.expandButton:SetText("v");
   else
     for _, frame in pairs(classSection.frames) do
       frame:Hide()
     end
-
     classSection.frame:SetHeight(RosterClassSection_BaseHeight);
-    -- Set container back to base height
-    -- change button to +
+    classSection.expandButton:SetText(">");
     classSection.expanded = false;
   end
 end
 
 local function CalcNewContainerHeight()
   local totalHeight = 0;
-  for class, data in pairs(RosterClassSections) do
+  for class, data in pairs(ClassSections) do
     totalHeight = totalHeight + data.frame:GetHeight()
   end
   return totalHeight;
@@ -117,25 +128,25 @@ local function CalcTopOfClassSection(class)
 
   local heightOfPrecedingSections = 0;
   for i=1, indexOfClass-1 do
-    heightOfPrecedingSections = heightOfPrecedingSections + RosterClassSections[sortedClassNames[i]].frame:GetHeight()
+    heightOfPrecedingSections = heightOfPrecedingSections + ClassSections[sortedClassNames[i]].frame:GetHeight()
   end
-
   return -heightOfPrecedingSections;
 end
 
 local function ResizeListAfter_aux(class)
-  RosterClassSections[class].frame:SetPoint("Top", RosterFrameContainer, "Top", RosterContainerInexplicableOffset/2, CalcTopOfClassSection(class));
+  ClassSections[class].frame:SetPoint("Top", RosterFrameContainer, "Top", RosterContainerInexplicableOffset/2, CalcTopOfClassSection(class));
   if class == sortedClassNames[9] then return end
   for i, name in ipairs(sortedClassNames) do
     if name == class then
       ResizeListAfter_aux(sortedClassNames[i+1])
     end
-  end  
+  end
 end
 
 function ResizeListAfter(class)
   ResizeListAfter_aux(class)
   RosterFrameContainer:SetHeight(CalcNewContainerHeight())
+  twadebug('new height is '..RosterFrameContainer:GetHeight())
 end
 
 local resizeCallbacks = {
@@ -179,22 +190,22 @@ function TWA_BuildRosterFrame()
 
   RosterFrameContainer = CreateFrame("Frame", "TWA_RosterManagerScrollFrameChild", RosterFrameScroll)
   RosterFrameContainer:SetWidth(RosterFrameScroll:GetWidth())
-
+  RosterFrameContainer:SetScript("OnSizeChanged", function() 
+    RosterFrameScroll:SetScrollChild(RosterFrameContainer);
+  end)
   RosterFrameScroll:SetScrollChild(RosterFrameContainer);
-  RosterFrameScroll:SetScript("OnSizeChanged", ScrollframeOnSizeChanged)
 
   RosterFrameContainer:SetPoint("Top", RosterFrameBox, "Top", RosterContainerInexplicableOffset/2, 0)
-  RosterFrameContainer:SetHeight(500);
 
   local i = 1;
-  for class, data in pairs(RosterClassSections) do
+  for _, class in ipairs(sortedClassNames) do
     local classSection = TWARoster_BuildClassSection(RosterFrameContainer, class);
-    data.frame = classSection;
-    classSection:SetPoint("Top", RosterFrameContainer, "Top", 0, -RosterClassSection_BaseHeight * i)
-    classSection:SetScript("OnSizeChanged", resizeCallbacks[class])
+    ClassSections[class] = classSection;
+    classSection.frame:SetPoint("Top", RosterFrameContainer, "Top", 0, -RosterClassSection_BaseHeight * i)
+    classSection.frame:SetScript("OnSizeChanged", resizeCallbacks[class])
   end
 
-  for class, _ in pairs(RosterClassSections) do
+  for class, _ in pairs(ClassSections) do
     resizeCallbacks[class]();
   end
 
@@ -209,31 +220,31 @@ function TWARoster_BuildClassSection(container, class)
     edgeSize = 16,
     insets = { left = 4, right = 3, top = 4, bottom = 3 }
   }
-  local classSection = CreateFrame("Frame", baseName .. class, container)
-  classSection:SetPoint("Top", container, "Top", 0, 0)
-  classSection:SetHeight(RosterClassSection_BaseHeight);
-  classSection:SetWidth(container:GetWidth() + RosterContainerInexplicableOffset)
-  classSection:SetBackdrop(backdrop);
-  classSection:SetBackdropColor(1, 1, 1, 0.05)
+  local classSectionFrame = CreateFrame("Frame", baseName .. class, container)
+  classSectionFrame:SetPoint("Top", container, "Top", 0, 0)
+  classSectionFrame:SetHeight(RosterClassSection_BaseHeight);
+  classSectionFrame:SetWidth(container:GetWidth() + RosterContainerInexplicableOffset)
+  classSectionFrame:SetBackdrop(backdrop);
+  classSectionFrame:SetBackdropColor(1, 1, 1, 0.05)
 
-  local expandButton = CreateFrame("Button", baseName.."expand"..class, classSection, "UIPanelButtonTemplate2")
-  expandButton:SetPoint("TopLeft", classSection, "TopLeft", 4, 0)
+  local expandButton = CreateFrame("Button", baseName.."expand"..class, classSectionFrame, "UIPanelButtonTemplate2")
+  expandButton:SetPoint("TopLeft", classSectionFrame, "TopLeft", 4, 0)
   expandButton:SetHeight(30);
   expandButton:SetWidth(25);
-  expandButton:SetText('+')
+  expandButton:SetText('>')
   expandButton:SetScript("OnClick", function() TWAHandleRosterExpandClick(class) end)
 
-  local className = classSection:CreateFontString(baseName .. "Header" .. class, "OVERLAY", "GameTooltipText")
+  local className = classSectionFrame:CreateFontString(baseName .. "Header" .. class, "OVERLAY", "GameTooltipText")
   className:SetTextColor(
     TWA.classColors[class].r,
     TWA.classColors[class].g,
     TWA.classColors[class].b
   )
-  className:SetPoint("TopLeft", classSection, "TopLeft", 32, -9)
+  className:SetPoint("TopLeft", classSectionFrame, "TopLeft", 32, -9)
   local classNameCapitalizedAndPlural = string.upper(string.sub(class, 1, 1)) .. string.sub(class, 2) .. 's'
   className:SetText(classNameCapitalizedAndPlural)
 
-  return classSection
+  return newClassSection(classSectionFrame, expandButton, nil); -- todo add player button
 end
 
 function TWARoster_OnClick()
