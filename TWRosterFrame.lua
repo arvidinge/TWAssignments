@@ -6,9 +6,13 @@ local RosterClassEntry_ExtraWidth = 40;
 local RosterClassSection_ExpandMargin = 6;
 local RosterContainerInexplicableOffset = 57
 
+---@type Frame
 local RosterFrameBox = nil;
+---@type Frame
 local RosterFrameScroll = nil;
+---@type Frame
 local RosterFrameContainer = nil;
+
 local RosterClassSections = {
   ['druid'] = { expandButton = nil, frame = nil, expanded = false, frames = {} },
   ['hunter'] = { expandButton = nil, frame = nil, expanded = false, frames = {} },
@@ -94,6 +98,14 @@ function TWAHandleRosterExpandClick(class)
   end
 end
 
+local function CalcNewContainerHeight()
+  local totalHeight = 0;
+  for class, data in pairs(RosterClassSections) do
+    totalHeight = totalHeight + data.frame:GetHeight()
+  end
+  return totalHeight;
+end
+
 local function CalcTopOfClassSection(class)
   local indexOfClass = 0;
   for i, curClass in ipairs(sortedClassNames) do
@@ -104,26 +116,38 @@ local function CalcTopOfClassSection(class)
   end
 
   local heightOfPrecedingSections = 0;
-  for i = 1,indexOfClass do
+  for i=1, indexOfClass-1 do
     heightOfPrecedingSections = heightOfPrecedingSections + RosterClassSections[sortedClassNames[i]].frame:GetHeight()
   end
+
   return -heightOfPrecedingSections;
 end
 
-local function ResizeListAfter(class)
+local function ResizeListAfter_aux(class)
+  RosterClassSections[class].frame:SetPoint("Top", RosterFrameContainer, "Top", RosterContainerInexplicableOffset/2, CalcTopOfClassSection(class));
+  if class == sortedClassNames[9] then return end
+  for i, name in ipairs(sortedClassNames) do
+    if name == class then
+      ResizeListAfter_aux(sortedClassNames[i+1])
+    end
+  end  
+end
 
+function ResizeListAfter(class)
+  ResizeListAfter_aux(class)
+  RosterFrameContainer:SetHeight(CalcNewContainerHeight())
 end
 
 local resizeCallbacks = {
-  ['druid'] = function() RosterClassSections['hunter'].frame:SetPoint("Top", RosterFrameContainer, "Top", RosterContainerInexplicableOffset/2, CalcTopOfClassSection('hunter')); end,
-  ['hunter'] = function() RosterClassSections['mage'].frame:SetPoint("Top", RosterFrameContainer, "Top", RosterContainerInexplicableOffset/2, CalcTopOfClassSection('mage')); end,
-  ['mage'] = function() RosterClassSections['paladin'].frame:SetPoint("Top", RosterFrameContainer, "Top", RosterContainerInexplicableOffset/2, CalcTopOfClassSection('paladin')); end,
-  ['paladin'] = function() RosterClassSections['priest'].frame:SetPoint("Top", RosterFrameContainer, "Top", RosterContainerInexplicableOffset/2, CalcTopOfClassSection('priest')); end,
-  ['priest'] = function() RosterClassSections['rogue'].frame:SetPoint("Top", RosterFrameContainer, "Top", RosterContainerInexplicableOffset/2, CalcTopOfClassSection('rogue')); end,
-  ['rogue'] = function() RosterClassSections['shaman'].frame:SetPoint("Top", RosterFrameContainer, "Top", RosterContainerInexplicableOffset/2, CalcTopOfClassSection('shaman')); end,
-  ['shaman'] = function() RosterClassSections['warlock'].frame:SetPoint("Top", RosterFrameContainer, "Top", RosterContainerInexplicableOffset/2, CalcTopOfClassSection('warlock')); end,
-  ['warlock'] = function() RosterClassSections['warrior'].frame:SetPoint("Top", RosterFrameContainer, "Top", RosterContainerInexplicableOffset/2, CalcTopOfClassSection('warrior')); end,
-  ['warrior'] = function() return end,
+  ['druid'] = function() ResizeListAfter('druid') end,
+  ['hunter'] = function() ResizeListAfter('hunter') end,
+  ['mage'] = function() ResizeListAfter('mage') end,
+  ['paladin'] = function() ResizeListAfter('paladin') end,
+  ['priest'] = function() ResizeListAfter('priest') end,
+  ['rogue'] = function() ResizeListAfter('rogue') end,
+  ['shaman'] = function() ResizeListAfter('shaman') end,
+  ['warlock'] = function() ResizeListAfter('warlock') end,
+  ['warrior'] = function() ResizeListAfter('warrior') end,
 }
 
 local rosterFrameBuilt = false;
