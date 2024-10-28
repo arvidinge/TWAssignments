@@ -131,6 +131,74 @@
             </Layer>
         </Layers>
         <Frames>
+            <Frame name="TWA_RosterManagerAddPlayersFrame" hidden="true" movable="true" enableMouse="true" resizable="true">
+                <Size>
+                    <AbsDimension x="200" y="400"/>
+                </Size>
+                <Anchors>
+                    <Anchor point="TOPLEFT" relativeTo="$parent" relativePoint="TOPRIGHT"/>
+                </Anchors>
+                <Backdrop bgFile="Interface\DialogFrame\UI-DialogBox-Background" edgeFile="Interface\DialogFrame\UI-DialogBox-Border" tile="true">
+                    <BackgroundInsets>
+                        <AbsInset left="2" right="2" top="3" bottom="3"/>
+                    </BackgroundInsets>
+                    <EdgeSize>
+                        <AbsValue val="16"/>
+                    </EdgeSize>
+                </Backdrop>
+                <Layers>
+                    <Layer level="OVERLAY">
+                        <FontString name="$parentHeader" inherits="GameFontNormal" text="Add CLASSNAME" hidden="false">
+                            <Anchors>
+                                <Anchor point="TOP">
+                                    <Offset>
+                                        <AbsDimension x="0" y="-10"/>
+                                    </Offset>
+                                </Anchor>
+                            </Anchors>
+                        </FontString>
+                        <FontString name="$parentHelpText" inherits="GameFontNormalSmall" text="Enter a " hidden="false">
+                            <Anchors>
+                                <Anchor point="TOP">
+                                    <Offset>
+                                        <AbsDimension x="0" y="-30"/>
+                                    </Offset>
+                                </Anchor>
+                            </Anchors>
+                        </FontString>
+                    </Layer>
+                </Layers>
+                <Frames>
+                    <ScrollFrame name="TWA_RosterManagerAddPlayersFrameScrollFrame" inherits="UIPanelScrollFrameTemplate">
+                        <Anchors>
+                            <Anchor point="TOPLEFT">
+                                <Offset>
+                                    <AbsDimension x="5" y="-70"/>
+                                </Offset>
+                            </Anchor>
+                            <Anchor point="BOTTOMRIGHT">
+                                <Offset>
+                                    <AbsDimension x="-32" y="35"/>
+                                </Offset>
+                            </Anchor>
+                        </Anchors>
+                        <scrollchild>
+                            <!-- <EditBox name="TWA_RosterManagerAddPlayersFrameEditBox" multiLine="true" autoFocus="true">
+                                <Size>
+                                    <AbsDimension x="200" y="400"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOP">
+                                        <Offset>
+                                            <AbsDimension x="0" y="0"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                            </EditBox> -->
+                        </scrollchild>
+                    </ScrollFrame>
+                </Frames>
+            </Frame>
             <Button name="$parentClose" inherits="UIPanelCloseButton">
                 <Size>
                     <AbsDimension x="32" y="32"/>
