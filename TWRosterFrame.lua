@@ -57,7 +57,7 @@ function BuildNameFrame(name, class)
   frame:Hide()
   frame:SetPoint('Right', parent, 'Right', 0, 0)
   frame:SetHeight(RosterClassEntry_Height)
-  frame:SetWidth(parent:GetWidth() + RosterClassEntry_ExtraWidth)
+  frame:SetWidth(parent:GetWidth() - 7)
 
   local text = frame:CreateFontString(frameName .. 'text', "OVERLAY", "GameFontNormalSmall")
   text:SetPoint('Left', frame, "Left", 0, 0)
@@ -146,7 +146,6 @@ end
 function ResizeListAfter(class)
   ResizeListAfter_aux(class)
   RosterFrameContainer:SetHeight(CalcNewContainerHeight())
-  twadebug('new height is '..RosterFrameContainer:GetHeight())
 end
 
 local resizeCallbacks = {
@@ -233,6 +232,9 @@ function TWARoster_BuildClassSection(container, class)
   expandButton:SetWidth(25);
   expandButton:SetText('>')
   expandButton:SetScript("OnClick", function() TWAHandleRosterExpandClick(class) end)
+  if table.getn(TWA.roster[class]) == 0 then
+    expandButton:Disable();
+  end
 
   local className = classSectionFrame:CreateFontString(baseName .. "Header" .. class, "OVERLAY", "GameTooltipText")
   className:SetTextColor(

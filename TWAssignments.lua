@@ -316,13 +316,13 @@ end
 
 TWA.roster = {
     ['druid'] = { "ChuckTesta" },
-    ['hunter'] = {},
+    ['hunter'] = { "Lennart Bladh" },
     ['mage'] = {},
     ['paladin'] = {},
     ['priest'] = {},
     ['rogue'] = {},
     ['shaman'] = {},
-    ['warlock'] = {},
+    ['warlock'] = { "HotTopic" },
     ['warrior'] = { "AnothaOne", "BigGuyForYou" },
 }
 
