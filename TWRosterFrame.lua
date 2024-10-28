@@ -123,8 +123,9 @@ local function HandleRosterAddPlayersClick(class)
   local addFrameHelp = getglobal('TWA_RosterManagerAddPlayersFrameHelpText')
   local color = TWA.classColors[class].c;
   local reset = '|r'
-  addFrameHeader:SetText('Add new '..TWA.classColors[class].c..classToCapitalizedPlural(class))
-  addFrameHelp:SetText('Please enter one '..color..class..reset..' name \nper row, then click Done to \nadd them to your roster.')
+  addFrameHeader:SetText('Add new ' .. TWA.classColors[class].c .. classToCapitalizedPlural(class))
+  addFrameHelp:SetText('Please enter one ' ..
+  color .. class .. reset .. ' name \nper row, then click Done to \nadd them to your roster.')
   addFrame:Show()
   -- message(class)
 end
@@ -290,4 +291,13 @@ end
 
 function CloseTWARoster_OnClick()
   getglobal('TWA_RosterManager'):Hide()
+end
+
+function FixThisShit(e)
+  ---@type EditBox
+  local eb = getglobal('TWA_RosterManagerAddPlayersFrameEditBox')
+  ---@type ScrollFrame
+  local sf = getglobal('TWA_RosterManagerAddPlayersFrameScrollFrame')
+
+  e:SetHeight(400);
 end
