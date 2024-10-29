@@ -3,6 +3,6 @@
 ## Author: Xerron/Er
 ## Version: 1.0.0.0
 ## Notes: Raid Tank/Healer Assignments
-## SavedVariables: TWA_DATA, TWA_PRESETS, TWA_POSITION
+## SavedVariables: TWA_DATA, TWA_PRESETS, TWA_POSITION, TWA_ROSTER
 ChatThrottleLib\ChatThrottleLib.lua
 TWAssignments.xml

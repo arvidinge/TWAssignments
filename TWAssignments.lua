@@ -1,7 +1,10 @@
+-- new features:
+-- confirm on reset
+-- roster
 local addonVer = "1.0.0.0" --don't use letters or numbers > 10
 local me = UnitName('player')
 
-local TWA = CreateFrame("Frame")
+TWA = CreateFrame("Frame")
 
 local TWATargetsDropDown = CreateFrame('Frame', 'TWATargetsDropDown', UIParent, 'UIDropDownMenuTemplate')
 local TWATanksDropDown = CreateFrame('Frame', 'TWATanksDropDown', UIParent, 'UIDropDownMenuTemplate')
@@ -11,7 +14,8 @@ local TWATemplates = CreateFrame('Frame', 'TWATemplates', UIParent, 'UIDropDownM
 
 function twaprint(a)
     if a == nil then
-        DEFAULT_CHAT_FRAME:AddMessage('|cff69ccf0[TWA]|cff0070de:' .. time() .. '|cffffffff attempt to print a nil value.')
+        DEFAULT_CHAT_FRAME:AddMessage('|cff69ccf0[TWA]|cff0070de:' ..
+            time() .. '|cffffffff attempt to print a nil value.')
         return false
     end
     DEFAULT_CHAT_FRAME:AddMessage("|cff69ccf0[TWA] |cffffffff" .. a)
@@ -23,7 +27,7 @@ end
 
 function twadebug(a)
     --    if not TWLC_DEBUG then return end
-    if me == 'Kzktst' or me == 'Xerrtwo' then
+    if me == 'Kzktst' or me == 'Xerrtwo' or me == 'Tantomon' or me == 'Gergrutaa' then
         twaprint('|cff0070de[TWADEBUG:' .. time() .. ']|cffffffff[' .. a .. ']')
     end
 end
@@ -297,21 +301,8 @@ function TWA.loadTemplate(template, load)
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "LoadTemplate=" .. template, "RAID")
 end
 
---default
-TWA.raid = {
-    ['warrior'] = {},
-    ['paladin'] = {},
-    ['druid'] = {},
-    ['warlock'] = {},
-    ['mage'] = {},
-    ['priest'] = {},
-    ['rogue'] = {},
-    ['shaman'] = {},
-    ['hunter'] = {},
-}
-
 --testing
---TWA.raid = {
+-- TWA.raid = {
 --    ['warrior'] = { 'Smultron', 'Jeff', 'Reis', 'Mesmorc' },
 --    ['paladin'] = { 'Paleddin', 'Laughadin' },
 --    ['druid'] = { 'Kashchada', 'Faralynn', 'Lulzer' },
@@ -321,30 +312,58 @@ TWA.raid = {
 --    ['rogue'] = { 'Tyrelys', 'Smersh', 'Tonysoprano' },
 --    ['shaman'] = { 'Ilmane', 'Buffalo', 'Cloudburst' },
 --    ['hunter'] = { 'Chlo', 'Zteban', 'Ruari' },
---}
+-- }
 
-TWA.classes = {
-    ['Warriors'] = 'warrior',
-    ['Paladins'] = 'paladin',
-    ['Druids'] = 'druid',
-    ['Warlocks'] = 'warlock',
-    ['Mages'] = 'mage',
-    ['Priests'] = 'priest',
-    ['Rogues'] = 'rogue',
-    ['Shamans'] = 'shaman',
-    ['Hunters'] = 'hunter',
+-- TWA.testRoster = {
+--     ['druid'] = { "ChuckTesta" },
+--     ['hunter'] = { "LennartBladh" },
+--     ['mage'] = {},
+--     ['paladin'] = {},
+--     ['priest'] = {},
+--     ['rogue'] = {},
+--     ['shaman'] = {},
+--     ['warlock'] = { "HotTopic" },
+--     ['warrior'] = { "AnothaOne", "BigGuyForYou" },
+-- }
+-- TWA.roster = TWA.testRoster
+
+---@type TWARoster
+TWA.roster = {
+    ['druid'] = {},
+    ['hunter'] = {},
+    ['mage'] = {},
+    ['paladin'] = {},
+    ['priest'] = {},
+    ['rogue'] = {},
+    ['shaman'] = {},
+    ['warlock'] = {},
+    ['warrior'] = {},
 }
 
+---@type TWARoster
+TWA.raid = {
+    ['druid'] = {},
+    ['hunter'] = {},
+    ['mage'] = {},
+    ['paladin'] = {},
+    ['priest'] = {},
+    ['rogue'] = {},
+    ['shaman'] = {},
+    ['warlock'] = {},
+    ['warrior'] = {},
+}
+
+---@type table<TWAWowClass, TWAWowColor>
 TWA.classColors = {
-    ["warrior"] = { r = 0.78, g = 0.61, b = 0.43, c = "|cffc79c6e" },
-    ["mage"] = { r = 0.41, g = 0.8, b = 0.94, c = "|cff69ccf0" },
-    ["rogue"] = { r = 1, g = 0.96, b = 0.41, c = "|cfffff569" },
     ["druid"] = { r = 1, g = 0.49, b = 0.04, c = "|cffff7d0a" },
     ["hunter"] = { r = 0.67, g = 0.83, b = 0.45, c = "|cffabd473" },
-    ["shaman"] = { r = 0.14, g = 0.35, b = 1.0, c = "|cff0070de" },
-    ["priest"] = { r = 1, g = 1, b = 1, c = "|cffffffff" },
-    ["warlock"] = { r = 0.58, g = 0.51, b = 0.79, c = "|cff9482c9" },
+    ["mage"] = { r = 0.41, g = 0.8, b = 0.94, c = "|cff69ccf0" },
     ["paladin"] = { r = 0.96, g = 0.55, b = 0.73, c = "|cfff58cba" },
+    ["priest"] = { r = 1, g = 1, b = 1, c = "|cffffffff" },
+    ["rogue"] = { r = 1, g = 0.96, b = 0.41, c = "|cfffff569" },
+    ["shaman"] = { r = 0.14, g = 0.35, b = 1.0, c = "|cff0070de" },
+    ["warlock"] = { r = 0.58, g = 0.51, b = 0.79, c = "|cff9482c9" },
+    ["warrior"] = { r = 0.78, g = 0.61, b = 0.43, c = "|cffc79c6e" },
 }
 
 TWA.marks = {
@@ -400,78 +419,88 @@ TWA.groups = {
 }
 
 TWA:SetScript("OnEvent", function()
-    if event then
-        if event == "ADDON_LOADED" and arg1 == "TWAssignments" then
-            twaprint("TWA Loaded")
-            if not TWA_PRESETS then
-                TWA_PRESETS = {}
-            end
-            if not TWA_DATA then
-                TWA_DATA = {
-                    [1] = { '-', '-', '-', '-', '-', '-', '-' },
-                }
-                TWA.data = TWA_DATA
-            end
+    if not event then return end
+
+    if event == "ADDON_LOADED" and arg1 == "TWAssignments" then
+        twaprint("TWA Loaded")
+        if not TWA_PRESETS then
+            TWA_PRESETS = {}
+        end
+        if not TWA_DATA then
+            TWA_DATA = {
+                [1] = { '-', '-', '-', '-', '-', '-', '-' },
+            }
             TWA.data = TWA_DATA
-            TWA.fillRaidData()
-            TWA.PopulateTWA()
-            tinsert(UISpecialFrames, "TWA_Main") --makes window close with Esc key
         end
-        if event == "RAID_ROSTER_UPDATE" then
-            TWA.fillRaidData()
-            TWA.PopulateTWA()
+        TWA.data = TWA_DATA
+
+        if TWA_ROSTER and TWA.testRoster == nil then
+            TWA.roster = TWA_ROSTER
         end
-        if event == 'CHAT_MSG_ADDON' and arg1 == "TWA" then
-            twadebug(arg4 .. ' says: ' .. arg2)
-            TWA.handleSync(arg1, arg2, arg3, arg4)
-        end
-        if event == 'CHAT_MSG_ADDON' and arg1 == "QH" then
-            TWA.handleQHSync(arg1, arg2, arg3, arg4)
-        end
-        if event == 'CHAT_MSG_WHISPER' then
-            if arg1 == 'heal' then
-                local lineToSend = ''
-                for _, row in next, TWA.data do
-                    local mark = ''
-                    local tank = ''
-                    for i, cell in next, row do
-                        if i == 1 then
-                            mark = cell
-                            tank = mark
+        TWA.fillRaidData()
+        TWA.PopulateTWA()
+        tinsert(UISpecialFrames, "TWA_Main") --makes window close with Esc key
+        tinsert(UISpecialFrames, "TWA_RosterManager") 
+    end
+
+    if event == "RAID_ROSTER_UPDATE" then
+        twadebug('raid roster update event')
+        TWA.fillRaidData()
+        TWA.PopulateTWA()
+    end
+
+    if event == 'CHAT_MSG_ADDON' and arg1 == "TWA" then
+        twadebug(arg4 .. ' says: ' .. arg2)
+        TWA.handleSync(arg1, arg2, arg3, arg4)
+    end
+
+    if event == 'CHAT_MSG_ADDON' and arg1 == "QH" then
+        TWA.handleQHSync(arg1, arg2, arg3, arg4)
+    end
+
+    if event == 'CHAT_MSG_WHISPER' then
+        if arg1 == 'heal' then
+            local lineToSend = ''
+            for _, row in next, TWA.data do
+                local mark = ''
+                local tank = ''
+                for i, cell in next, row do
+                    if i == 1 then
+                        mark = cell
+                        tank = mark
+                    end
+                    if i == 2 or i == 3 or i == 4 then
+                        if cell ~= '-' then
+                            tank = ''
                         end
+                    end
+                    if i == 2 or i == 3 or i == 4 then
+                        if cell ~= '-' then
+                            tank = tank .. cell .. ' '
+                        end
+                    end
+                    if arg2 == cell then
                         if i == 2 or i == 3 or i == 4 then
-                            if cell ~= '-' then
-                                tank = ''
+                            if lineToSend == '' then
+                                lineToSend = 'You are assigned to ' .. mark
+                            else
+                                lineToSend = lineToSend .. ' and ' .. mark
                             end
                         end
-                        if i == 2 or i == 3 or i == 4 then
-                            if cell ~= '-' then
-                                tank = tank .. cell .. ' '
-                            end
-                        end
-                        if arg2 == cell then
-                            if i == 2 or i == 3 or i == 4 then
-                                if lineToSend == '' then
-                                    lineToSend = 'You are assigned to ' .. mark
-                                else
-                                    lineToSend = lineToSend .. ' and ' .. mark
-                                end
-                            end
-                            if i == 5 or i == 6 or i == 7 then
-                                if lineToSend == '' then
-                                    lineToSend = 'You are assigned to Heal ' .. tank
-                                else
-                                    lineToSend = lineToSend .. ' and ' .. tank
-                                end
+                        if i == 5 or i == 6 or i == 7 then
+                            if lineToSend == '' then
+                                lineToSend = 'You are assigned to Heal ' .. tank
+                            else
+                                lineToSend = lineToSend .. ' and ' .. tank
                             end
                         end
                     end
                 end
-                if lineToSend == '' then
-                    ChatThrottleLib:SendChatMessage("BULK", "TWA", 'You are not assigned.', "WHISPER", "Common", arg2);
-                else
-                    ChatThrottleLib:SendChatMessage("BULK", "TWA", lineToSend, "WHISPER", "Common", arg2);
-                end
+            end
+            if lineToSend == '' then
+                ChatThrottleLib:SendChatMessage("BULK", "TWA", 'You are not assigned.', "WHISPER", "Common", arg2);
+            else
+                ChatThrottleLib:SendChatMessage("BULK", "TWA", lineToSend, "WHISPER", "Common", arg2);
             end
         end
     end
@@ -488,6 +517,19 @@ function TWA.markOrPlayerUsed(markOrPlayer)
     return false
 end
 
+table.contains = function(tbl, value)
+    for i = 1, table.getn(tbl) do
+        if (tbl[i] == value) then
+            return true
+        end
+    end
+    return false
+end
+
+function TWA.persistRoster()
+    TWA_ROSTER = TWA.roster
+end
+
 function TWA.fillRaidData()
     twadebug('fill raid data')
     TWA.raid = {
@@ -501,6 +543,7 @@ function TWA.fillRaidData()
         ['shaman'] = {},
         ['hunter'] = {},
     }
+    -- current raid members
     for i = 0, GetNumRaidMembers() do
         if GetRaidRosterInfo(i) then
             local name, _, _, _, _, _, z = GetRaidRosterInfo(i);
@@ -510,22 +553,38 @@ function TWA.fillRaidData()
             table.sort(TWA.raid[unitClass])
         end
     end
+    -- roster list (see TWA.roster)
+    for class, names in pairs(TWA.roster) do
+        for _, name in pairs(names) do
+            if not table.contains(TWA.raid[class], name) then
+                table.insert(TWA.raid[class], name)
+            end
+            table.sort(TWA.raid[class])
+        end
+    end
 end
 
 function TWA.isPlayerOffline(name)
+    local playerFound = false;
     for i = 0, GetNumRaidMembers() do
         if (GetRaidRosterInfo(i)) then
             local n, _, _, _, _, _, z = GetRaidRosterInfo(i);
-            if n == name and z == 'Offline' then
-                return true
+            if n == name then
+                playerFound = true    
+                if z == 'Offline' then
+                    return true
+                end
             end
         end
+        if playerFound then break end
     end
+    if not playerFound then 
+        return true -- if not in group, treat as offline (can be in roster yet not in group)
+    end 
     return false
 end
 
-function TWA.handleSync(pre, t, ch, sender)
-
+function TWA.handleSync(_, t, _, sender)
     if string.find(t, 'LoadTemplate=', 1, true) then
         local tempEx = string.split(t, '=')
         if not tempEx[2] then
@@ -545,13 +604,13 @@ function TWA.handleSync(pre, t, ch, sender)
             ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=start", "RAID")
             for _, data in next, TWA.data do
                 ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=" ..
-                        data[1] .. '=' ..
-                        data[2] .. '=' ..
-                        data[3] .. '=' ..
-                        data[4] .. '=' ..
-                        data[5] .. '=' ..
-                        data[6] .. '=' ..
-                        data[7], "RAID")
+                    data[1] .. '=' ..
+                    data[2] .. '=' ..
+                    data[3] .. '=' ..
+                    data[4] .. '=' ..
+                    data[5] .. '=' ..
+                    data[6] .. '=' ..
+                    data[7], "RAID")
             end
             ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=end", "RAID")
         end
@@ -615,15 +674,13 @@ function TWA.handleSync(pre, t, ch, sender)
 end
 
 function TWA.handleQHSync(pre, t, ch, sender)
-
     if sender ~= me then
         local roster
         local tanks = 'Tanks='
         local healers = 'Healers='
 
         if string.find(t, 'RequestRoster', 1, true) then -- QH roster request
-
-            for index, data in next, TWA.data do -- build roster string
+            for index, data in next, TWA.data do         -- build roster string
                 for i, name in data do
                     if i == 2 or i == 3 or i == 4 then
                         if name ~= '-' then
@@ -655,7 +712,6 @@ TWA.rows = {}
 TWA.cells = {}
 
 function TWA.changeCell(xy, to, dontOpenDropdown)
-
     dontOpenDropdown = dontOpenDropdown and 1 or 0
 
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "ChangeCell=" .. xy .. "=" .. to .. "=" .. dontOpenDropdown, "RAID")
@@ -679,7 +735,6 @@ function TWA.change(xy, to, sender, dontOpenDropdown)
 end
 
 function TWA.PopulateTWA()
-
     twadebug('PopulateTWA')
 
     for i = 1, 25 do
@@ -691,7 +746,6 @@ function TWA.PopulateTWA()
     end
 
     for index, data in next, TWA.data do
-
         if not TWA.rows[index] then
             TWA.rows[index] = CreateFrame('Frame', 'TWRow' .. index, getglobal("TWA_Main"), 'TWRow')
         end
@@ -710,7 +764,6 @@ function TWA.PopulateTWA()
         local line = ''
 
         for i, name in data do
-
             if not TWA.cells[index][i] then
                 TWA.cells[index][i] = CreateFrame('Frame', 'TWCell' .. index .. i, TWA.rows[index], 'TWCell')
             end
@@ -721,18 +774,21 @@ function TWA.PopulateTWA()
 
             local color = TWA.classColors['priest'].c
             TWA.cells[index][i]:SetBackdropColor(.2, .2, .2, .7);
-            for c, n in next, TWA.raid do
-                for _, raidMember in next, n do
-                    if raidMember == name then
-                        color = TWA.classColors[c].c
-                        local r = TWA.classColors[c].r
-                        local g = TWA.classColors[c].g
-                        local b = TWA.classColors[c].b
-                        TWA.cells[index][i]:SetBackdropColor(r, g, b, .7);
-                        break
+            if i > 1 then
+                for c, n in next, TWA.raid do
+                    for _, raidMember in next, n do
+                        if raidMember == name then
+                            color = TWA.classColors[c].c
+                            local r = TWA.classColors[c].r
+                            local g = TWA.classColors[c].g
+                            local b = TWA.classColors[c].b
+                            TWA.cells[index][i]:SetBackdropColor(r, g, b, .7);
+                            break
+                        end
                     end
                 end
             end
+
 
             if TWA.marks[name] then
                 color = TWA.marks[name]
@@ -754,7 +810,7 @@ function TWA.PopulateTWA()
                 name = ''
             end
 
-            if TWA.isPlayerOffline(name) then
+            if i > 1 and name ~= '' and TWA.isPlayerOffline(name) then
                 color = '|cffff0000'
             end
 
@@ -805,7 +861,6 @@ function TWA.PopulateTWA()
 end
 
 function Buttoane_OnEnter(id)
-
     local index = math.floor(id / 100)
 
     if id < 100 then
@@ -816,7 +871,6 @@ function Buttoane_OnEnter(id)
 end
 
 function Buttoane_OnLeave(id)
-
     local index = math.floor(id / 100)
 
     if id < 100 then
@@ -826,10 +880,25 @@ function Buttoane_OnLeave(id)
     getglobal('TWRow' .. index):SetBackdropColor(0, 0, 0, .2)
 end
 
+function TWAHandleRosterEditBox(editBox)
+    local scrollBar = getglobal(editBox:GetParent():GetName() .. "ScrollBar")
+    editBox:GetParent():UpdateScrollChildRect();
+
+    local _, max = scrollBar:GetMinMaxValues();
+    scrollBar.prevMaxValue = scrollBar.prevMaxValue or max
+
+    if math.abs(scrollBar.prevMaxValue - scrollBar:GetValue()) <= 1 then
+        -- if scroll is down and add new line then move scroll
+        scrollBar:SetValue(max);
+    end
+    if max ~= scrollBar.prevMaxValue then
+        -- save max value
+        scrollBar.prevMaxValue = max
+    end
+end
+
 function buildTargetsDropdown()
-
     if UIDROPDOWNMENU_MENU_LEVEL == 1 then
-
         local Title = {}
         Title.text = "Target"
         Title.isTitle = true
@@ -902,9 +971,7 @@ function buildTargetsDropdown()
     end
 
     if UIDROPDOWNMENU_MENU_LEVEL == 2 then
-
         if (UIDROPDOWNMENU_MENU_VALUE["key"] == 'marks') then
-
             local Title = {}
             Title.text = "Marks"
             Title.isTitle = true
@@ -916,7 +983,6 @@ function buildTargetsDropdown()
             UIDropDownMenu_AddButton(separator, UIDROPDOWNMENU_MENU_LEVEL);
 
             for mark, color in next, TWA.marks do
-
                 local dropdownItem = {}
                 dropdownItem.text = color .. mark
                 dropdownItem.checked = TWA.markOrPlayerUsed(mark)
@@ -981,7 +1047,6 @@ function buildTargetsDropdown()
         end
 
         if (UIDROPDOWNMENU_MENU_VALUE["key"] == 'sides') then
-
             local Title = {}
             Title.text = "Sides"
             Title.isTitle = true
@@ -1010,7 +1075,6 @@ function buildTargetsDropdown()
         end
 
         if (UIDROPDOWNMENU_MENU_VALUE["key"] == 'coords') then
-
             local Title = {}
             Title.text = "Coords"
             Title.isTitle = true
@@ -1052,7 +1116,6 @@ function buildTargetsDropdown()
         end
 
         if (UIDROPDOWNMENU_MENU_VALUE["key"] == 'misc') then
-
             local Title = {}
             Title.text = "Misc"
             Title.isTitle = true
@@ -1075,7 +1138,6 @@ function buildTargetsDropdown()
         end
 
         if (UIDROPDOWNMENU_MENU_VALUE["key"] == 'groups') then
-
             local Title = {}
             Title.text = "Groups"
             Title.isTitle = true
@@ -1100,9 +1162,7 @@ function buildTargetsDropdown()
 end
 
 function buildTanksDropdown()
-
     if UIDROPDOWNMENU_MENU_LEVEL == 1 then
-
         local Title = {}
         Title.text = "Tanks"
         Title.isTitle = true
@@ -1204,6 +1264,15 @@ function buildTanksDropdown()
         separator.disabled = true
         UIDropDownMenu_AddButton(separator);
 
+        -- local addRegular = {};
+        -- addRegular.text = "|c0000ff00Add Regular"
+        -- addRegular.disabled = false
+        -- addRegular.isTitle = false
+        -- addRegular.notCheckable = true
+        -- addRegular.func = TWA.addRegularClicked
+        -- addRegular.arg1 = TWA.currentRow * 100 + TWA.currentCell
+        -- UIDropDownMenu_AddButton(addRegular, UIDROPDOWNMENU_MENU_LEVEL);
+
         local clear = {};
         clear.text = "Clear"
         clear.disabled = false
@@ -1215,7 +1284,6 @@ function buildTanksDropdown()
         UIDropDownMenu_AddButton(clear, UIDROPDOWNMENU_MENU_LEVEL);
     end
     if UIDROPDOWNMENU_MENU_LEVEL == 2 then
-
         for i, tank in next, TWA.raid[UIDROPDOWNMENU_MENU_VALUE['key']] do
             local Tanks = {}
 
@@ -1236,9 +1304,7 @@ function buildTanksDropdown()
 end
 
 function buildHealersDropdown()
-
     if UIDROPDOWNMENU_MENU_LEVEL == 1 then
-
         local Healers = {}
         Healers.text = "Healers"
         Healers.isTitle = true
@@ -1248,7 +1314,7 @@ function buildHealersDropdown()
         separator.text = ""
         separator.disabled = true
         UIDropDownMenu_AddButton(separator, UIDROPDOWNMENU_MENU_LEVEL);
-        
+
         local Priests = {}
         Priests.text = TWA.classColors['priest'].c .. 'Priests'
         Priests.notCheckable = true
@@ -1301,7 +1367,6 @@ function buildHealersDropdown()
         UIDropDownMenu_AddButton(clear, UIDROPDOWNMENU_MENU_LEVEL);
     end
     if UIDROPDOWNMENU_MENU_LEVEL == 2 then
-
         for _, healer in next, TWA.raid[UIDROPDOWNMENU_MENU_VALUE['key']] do
             local Healers = {}
 
@@ -1325,7 +1390,7 @@ TWA.currentRow = 0
 TWA.currentCell = 0
 
 function TWCell_OnClick(id)
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then 
+    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
         twaprint("You need to be a raid leader or assistant to do that")
         return
     end
@@ -1357,7 +1422,7 @@ function TWCell_OnClick(id)
 end
 
 function AddLine_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then 
+    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
         twaprint("You need to be a raid leader or assistant to do that")
         return
     end
@@ -1372,14 +1437,13 @@ function TWA.AddLine()
 end
 
 function SpamRaid_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then 
+    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
         twaprint("You need to be a raid leader or assistant to do that")
         return
     end
     ChatThrottleLib:SendChatMessage("BULK", "TWA", "======= RAID ASSIGNMENTS =======", "RAID_WARNING")
 
     for _, data in next, TWA.data do
-
         local line = ''
         local dontPrintLine = true
         for i, name in data do
@@ -1412,11 +1476,12 @@ function SpamRaid_OnClick()
             ChatThrottleLib:SendChatMessage("BULK", "TWA", line, "RAID")
         end
     end
-    ChatThrottleLib:SendChatMessage("BULK", "TWA", "Not assigned, heal the raid. Whisper me 'heal' if you forget your assignment.", "RAID")
+    ChatThrottleLib:SendChatMessage("BULK", "TWA",
+        "Not assigned, heal the raid. Whisper me 'heal' if you forget your assignment.", "RAID")
 end
 
 function RemRow_OnClick(id)
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then 
+    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
         twaprint("You need to be a raid leader or assistant to do that")
         return
     end
@@ -1424,7 +1489,6 @@ function RemRow_OnClick(id)
 end
 
 function TWA.RemRow(id, sender)
-
     if TWA.data[id + 1] then
         TWA.data[id] = TWA.data[id + 1]
     end
@@ -1446,11 +1510,24 @@ function TWA.RemRow(id, sender)
 end
 
 function Reset_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then 
+    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
         twaprint("You need to be a raid leader or assistant to do that")
         return
     end
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "Reset", "RAID")
+
+    StaticPopupDialogs["TWA_RESET_CONFIRM"] = {
+        text = "Are you sure you want to clear current assignments?",
+        button1 = ACCEPT,
+        button2 = CANCEL,
+        OnAccept = function()
+            ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "Reset", "RAID")
+        end,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        preferredIndex = 3, -- avoid some UI taint, see http://www.wowace.com/announcements/how-to-avoid-some-ui-taint/
+    }
+    StaticPopup_Show("TWA_RESET_CONFIRM")
 end
 
 function TWA.Reset()
@@ -1470,11 +1547,13 @@ end
 
 function CloseTWA_OnClick()
     getglobal('TWA_Main'):Hide()
+    TWA_CloseRosterFrame()
 end
 
 function toggle_TWA_Main()
     if (getglobal('TWA_Main'):IsVisible()) then
         getglobal('TWA_Main'):Hide()
+        getglobal('TWA_RosterManager'):Hide()
     else
         getglobal('TWA_Main'):Show()
     end
@@ -1482,7 +1561,6 @@ end
 
 function buildTemplatesDropdown()
     if UIDROPDOWNMENU_MENU_LEVEL == 1 then
-
         local Title = {}
         Title.text = "Templates"
         Title.isTitle = true
@@ -1545,9 +1623,7 @@ function buildTemplatesDropdown()
     end
 
     if UIDROPDOWNMENU_MENU_LEVEL == 2 then
-
         if UIDROPDOWNMENU_MENU_VALUE["key"] == 'trash' then
-
             for i = 1, 5 do
                 local dropdownItem = {}
                 dropdownItem.text = "Trash #" .. i
@@ -1556,11 +1632,9 @@ function buildTemplatesDropdown()
                 dropdownItem.arg2 = false
                 UIDropDownMenu_AddButton(dropdownItem, UIDROPDOWNMENU_MENU_LEVEL);
             end
-
         end
 
         if UIDROPDOWNMENU_MENU_VALUE["key"] == 'mc' then
-
             local dropdownItem = {}
             dropdownItem.text = "Gaar"
             dropdownItem.func = TWA.loadTemplate
@@ -1587,7 +1661,6 @@ function buildTemplatesDropdown()
         end
 
         if UIDROPDOWNMENU_MENU_VALUE["key"] == 'bwl' then
-
             local dropdownItem = {}
             dropdownItem.text = "Razorgore"
             dropdownItem.func = TWA.loadTemplate
@@ -1630,7 +1703,6 @@ function buildTemplatesDropdown()
         end
 
         if UIDROPDOWNMENU_MENU_VALUE["key"] == 'aq40' then
-
             local dropdownItem = {}
             dropdownItem.text = "The Prophet Skeram"
             dropdownItem.func = TWA.loadTemplate
@@ -1678,11 +1750,9 @@ function buildTemplatesDropdown()
             dropdownItem.arg2 = false
             UIDropDownMenu_AddButton(dropdownItem, UIDROPDOWNMENU_MENU_LEVEL);
             dropdownItem = nil
-
         end
 
         if UIDROPDOWNMENU_MENU_VALUE["key"] == 'naxx' then
-
             local dropdownItem = {}
             dropdownItem.text = "Anub'rekhan"
             dropdownItem.func = TWA.loadTemplate
@@ -1814,13 +1884,12 @@ function buildTemplatesDropdown()
             dropdownItem.arg2 = false
             UIDropDownMenu_AddButton(dropdownItem, UIDROPDOWNMENU_MENU_LEVEL);
             dropdownItem = nil
-
         end
     end
 end
 
 function Templates_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then 
+    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
         twaprint("You need to be a raid leader or assistant to do that")
         return
     end
@@ -1829,28 +1898,23 @@ function Templates_OnClick()
 end
 
 function LoadPreset_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then 
+    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
         twaprint("You need to be a raid leader or assistant to do that")
         return
     end
     if TWA.loadedTemplate == '' then
         twaprint('Please load a template first.')
     else
-
         TWA.loadTemplate(TWA.loadedTemplate)
 
         if TWA_PRESETS[TWA.loadedTemplate] then
-
             for index, data in next, TWA_PRESETS[TWA.loadedTemplate] do
                 for i, name in data do
-
                     if i ~= 1 and name ~= '-' then
                         TWA.changeCell(index * 100 + i, name, true)
                     end
-
                 end
             end
-
         else
             twaprint('No preset saved for |cff69ccf0' .. TWA.loadedTemplate)
         end
@@ -1858,7 +1922,7 @@ function LoadPreset_OnClick()
 end
 
 function SavePreset_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then 
+    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
         twaprint("You need to be a raid leader or assistant to do that")
         return
     end
@@ -1875,18 +1939,16 @@ function SavePreset_OnClick()
         TWA_PRESETS[TWA.loadedTemplate] = preset
         twaprint('Saved preset for |cff69ccf0' .. TWA.loadedTemplate)
     end
-
 end
 
 function SyncBW_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then 
+    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
         twaprint("You need to be a raid leader or assistant to do that")
         return
     end
     ChatThrottleLib:SendAddonMessage("ALERT", "TWABW", "BWSynch=start", "RAID")
 
     for _, data in next, TWA.data do
-
         local line = ''
         local dontPrintLine = true
         for i, name in data do
@@ -1917,7 +1979,6 @@ function SyncBW_OnClick()
         end
     end
     ChatThrottleLib:SendAddonMessage("ALERT", "TWABW", "BWSynch=end", "RAID")
-
 end
 
 function string:split(delimiter)
