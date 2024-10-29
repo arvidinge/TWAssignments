@@ -314,9 +314,9 @@ end
 --    ['hunter'] = { 'Chlo', 'Zteban', 'Ruari' },
 -- }
 
-TWA.roster = {
+TWA.testRoster = {
     ['druid'] = { "ChuckTesta" },
-    ['hunter'] = { "Lennart Bladh" },
+    ['hunter'] = { "LennartBladh" },
     ['mage'] = {},
     ['paladin'] = {},
     ['priest'] = {},
@@ -325,6 +325,19 @@ TWA.roster = {
     ['warlock'] = { "HotTopic" },
     ['warrior'] = { "AnothaOne", "BigGuyForYou" },
 }
+TWA.roster = TWA.testRoster
+
+-- TWA.roster = {
+--     ['druid'] = {},
+--     ['hunter'] = {},
+--     ['mage'] = {},
+--     ['paladin'] = {},
+--     ['priest'] = {},
+--     ['rogue'] = {},
+--     ['shaman'] = {},
+--     ['warlock'] = {},
+--     ['warrior'] = {},
+-- }
 
 --default
 TWA.raid = {
@@ -418,7 +431,8 @@ TWA:SetScript("OnEvent", function()
             TWA.data = TWA_DATA
         end
         TWA.data = TWA_DATA
-        if TWA_ROSTER then
+        
+        if TWA_ROSTER and TWA.testRoster == nil then
             TWA.roster = TWA_ROSTER
         end
         TWA.fillRaidData()
@@ -508,7 +522,7 @@ table.contains = function(tbl, value)
     return false
 end
 
-function TWA.saveRoster()
+function TWA.persistRoster()
     TWA_ROSTER = TWA.roster
 end
 

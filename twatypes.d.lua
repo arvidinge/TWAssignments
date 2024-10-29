@@ -1,6 +1,7 @@
 ---@meta
 
 ---@alias WowClass 'druid' | 'hunter' | 'mage' | 'paladin' | 'priest' | 'rogue' | 'shaman' | 'warlock' | 'warrior'
+---@alias Roster table<WowClass, table<integer, string>>
 
 ---@class ClassSection
 ---@field expanded boolean
@@ -20,3 +21,4 @@ ClassSection = {}
 ---@field cancel Button
 ---@field editBox EditBox
 AddPlayers = {}
+

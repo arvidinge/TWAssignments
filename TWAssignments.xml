@@ -305,23 +305,6 @@
                     </OnClick>
                 </Scripts>
             </Button>
-            <Button name="$parentSaveRoster" inherits="UIPanelButtonTemplate2" text="Save">
-                <Size>
-                    <AbsDimension x="60" y="20" />
-                </Size>
-                <Anchors>
-                    <Anchor point="BOTTOM">
-                        <Offset>
-                            <AbsDimension x="0" y="10" />
-                        </Offset>
-                    </Anchor>
-                </Anchors>
-                <Scripts>
-                    <OnClick>
-                        TWA_SaveRosterClick()
-                    </OnClick>
-                </Scripts>
-            </Button>
         </Frames>
         <Scripts>
             <OnLoad>
