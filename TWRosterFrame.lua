@@ -9,21 +9,21 @@ local function strCapitalize(str)
   return string.upper(string.sub(str, 1, 1)) .. string.lower(string.sub(str, 2))
 end
 
--- AddPlayers Start #########################
-AddPlayers = {}
-AddPlayers.__index = AddPlayers
+-- TWAAddPlayers Start #########################
+TWAAddPlayers = {}
+TWAAddPlayers.__index = TWAAddPlayers
 
---- Creates a new AddPlayers instance
+--- Creates a new TWAAddPlayers instance
 ---@param frame Frame
 ---@param editBox EditBox
----@param class WowClass|nil
+---@param class TWAWowClass|nil
 ---@param header FontString
 ---@param help FontString
 ---@param done Button
 ---@param cancel Button
----@return AddPlayers
-function AddPlayers:new(frame, editBox, header, help, done, cancel, class)
-  ---@type AddPlayers
+---@return TWAAddPlayers
+function TWAAddPlayers:new(frame, editBox, header, help, done, cancel, class)
+  ---@type TWAAddPlayers
   local obj = {
     currentClass = class, -- Initialize with nil class
     frame = frame,
@@ -33,28 +33,28 @@ function AddPlayers:new(frame, editBox, header, help, done, cancel, class)
     cancel = cancel,
     help = help
   }
-  setmetatable(obj, AddPlayers)
+  setmetatable(obj, TWAAddPlayers)
   return obj
 end
 
 --- Gets the text from the editbox
----@param self AddPlayers
+---@param self TWAAddPlayers
 ---@return string
-function AddPlayers:GetText()
+function TWAAddPlayers:GetText()
   return self.editBox:GetText() -- Assume EditBox has a method GetText
 end
 
 --- Sets the text in the editbox
----@param self AddPlayers
+---@param self TWAAddPlayers
 ---@param text string
-function AddPlayers:SetText(text)
+function TWAAddPlayers:SetText(text)
   self.editBox:SetText(text) -- Assume EditBox has a method SetText
 end
 
 --- Sets the class you're adding players to
----@param self AddPlayers
----@param class WowClass
-function AddPlayers:SetClass(class)
+---@param self TWAAddPlayers
+---@param class TWAWowClass
+function TWAAddPlayers:SetClass(class)
   self._currentClass = class
   local color = TWA.classColors[class].c;
   local reset = '|r'
@@ -64,12 +64,12 @@ function AddPlayers:SetClass(class)
 end
 
 --- Gets the class you're adding players to
----@param self AddPlayers
----@return WowClass
-function AddPlayers:GetClass()
+---@param self TWAAddPlayers
+---@return TWAWowClass
+function TWAAddPlayers:GetClass()
   return self._currentClass
 end
--- AddPlayers End #########################
+-- TWAAddPlayers End #########################
 
 
 
@@ -83,21 +83,21 @@ local RosterFrameScroll = nil;
 ---@type Frame
 local RosterFrameContainer = nil;
 
----@type AddPlayers
+---@type TWAAddPlayers
 local addPlayers;
 
 
 
--- ClassSection Start #########################
-ClassSection = {}
-ClassSection.__index = ClassSection
+-- TWAClassSection Start #########################
+TWAClassSection = {}
+TWAClassSection.__index = TWAClassSection
 
 ---@param frame Frame
 ---@param expandButton Button
 ---@param addPlayerButton Button
----@param class WowClass
-function ClassSection:new(frame, expandButton, addPlayerButton, class)
-  ---@type ClassSection
+---@param class TWAWowClass
+function TWAClassSection:new(frame, expandButton, addPlayerButton, class)
+  ---@type TWAClassSection
   local obj = {
     class = class,
     frame = frame,
@@ -107,15 +107,15 @@ function ClassSection:new(frame, expandButton, addPlayerButton, class)
     frames = {}
   }
 
-  setmetatable(obj, ClassSection)
+  setmetatable(obj, TWAClassSection)
   return obj
 end
 
----@param self ClassSection
+---@param self TWAClassSection
 ---@param name string
----@param class WowClass
+---@param class TWAWowClass
 ---@return Frame
-function ClassSection:_buildNameFrame(name, class)
+function TWAClassSection:_buildNameFrame(name, class)
   local parent = self.frame;
   local frameName = "TWA_RosterEntry" .. name;
   local frame = CreateFrame("Frame", "TWA_RosterEntry" .. name, parent)
@@ -171,8 +171,8 @@ function ClassSection:_buildNameFrame(name, class)
   return frame;
 end
 
----@param self ClassSection
-function ClassSection:Expand()
+---@param self TWAClassSection
+function TWAClassSection:Expand()
   local class = self.class
   local names = TWA.roster[class]
   table.sort(names)
@@ -201,8 +201,8 @@ function ClassSection:Expand()
   self.expandButton:SetText("v");
 end
 
----@param self ClassSection
-function ClassSection:Collapse()
+---@param self TWAClassSection
+function TWAClassSection:Collapse()
   for _, frame in pairs(self.frames) do
     frame:Hide()
   end
@@ -211,15 +211,16 @@ function ClassSection:Collapse()
   self.expanded = false;
 end
 
----@param self ClassSection
+---@param self TWAClassSection
 ---@return table<integer, string>
-function ClassSection:GetRoster()
+function TWAClassSection:GetRoster()
   return TWA.roster[self.class]
 end
 
----@param self ClassSection
-function ClassSection:Update()
+---@param self TWAClassSection
+function TWAClassSection:Update()
   TWA.fillRaidData()
+  TWA.PopulateTWA()
   TWA.persistRoster()
 
   if table.getn(self:GetRoster()) > 0 then
@@ -234,11 +235,9 @@ function ClassSection:Update()
     self:Expand() -- this builds missing frames
   end
 end
--- ClassSection end #########################
+-- TWAClassSection end #########################
 
-
-
----@type table<WowClass, ClassSection|nil>
+---@type table<TWAWowClass, TWAClassSection|nil>
 local ClassSections = {
   ['druid'] = nil,
   ['hunter'] = nil,
@@ -261,7 +260,7 @@ end
 
 function TWA_AddPlayersFrameLoaded()
   local basename = 'TWA_RosterManagerAddPlayersFrame'
-  addPlayers = AddPlayers:new(
+  addPlayers = TWAAddPlayers:new(
     getglobal(basename),
     getglobal(basename .. 'EditBox'),
     getglobal(basename .. 'Header'),
@@ -531,7 +530,7 @@ function TWARoster_BuildClassSection(container, class)
   addPlayerButton:SetText('Add Player(s)')
   addPlayerButton:SetScript("OnClick", function() HandleRosterAddPlayersClick(class) end)
 
-  return ClassSection:new(classSectionFrame, expandButton, addPlayerButton, class);
+  return TWAClassSection:new(classSectionFrame, expandButton, addPlayerButton, class);
 end
 
 function TWARoster_OnClick()
@@ -547,4 +546,9 @@ end
 
 function CloseTWARoster_OnClick()
   getglobal('TWA_RosterManager'):Hide()
+end
+
+function TWA_RosterManager_OnHide()
+  addPlayers:SetText('')
+  addPlayers.frame:Hide();
 end

@@ -327,6 +327,7 @@ end
 -- }
 -- TWA.roster = TWA.testRoster
 
+---@type TWARoster
 TWA.roster = {
     ['druid'] = {},
     ['hunter'] = {},
@@ -339,7 +340,7 @@ TWA.roster = {
     ['warrior'] = {},
 }
 
---default
+---@type TWARoster
 TWA.raid = {
     ['druid'] = {},
     ['hunter'] = {},
@@ -352,6 +353,7 @@ TWA.raid = {
     ['warrior'] = {},
 }
 
+---@type table<TWAWowClass, TWAWowColor>
 TWA.classColors = {
     ["druid"] = { r = 1, g = 0.49, b = 0.04, c = "|cffff7d0a" },
     ["hunter"] = { r = 0.67, g = 0.83, b = 0.45, c = "|cffabd473" },
@@ -431,16 +433,18 @@ TWA:SetScript("OnEvent", function()
             TWA.data = TWA_DATA
         end
         TWA.data = TWA_DATA
-        
+
         if TWA_ROSTER and TWA.testRoster == nil then
             TWA.roster = TWA_ROSTER
         end
         TWA.fillRaidData()
         TWA.PopulateTWA()
         tinsert(UISpecialFrames, "TWA_Main") --makes window close with Esc key
+        tinsert(UISpecialFrames, "TWA_RosterManager") 
     end
 
     if event == "RAID_ROSTER_UPDATE" then
+        twadebug('raid roster update event')
         TWA.fillRaidData()
         TWA.PopulateTWA()
     end
@@ -762,18 +766,21 @@ function TWA.PopulateTWA()
 
             local color = TWA.classColors['priest'].c
             TWA.cells[index][i]:SetBackdropColor(.2, .2, .2, .7);
-            for c, n in next, TWA.raid do
-                for _, raidMember in next, n do
-                    if raidMember == name then
-                        color = TWA.classColors[c].c
-                        local r = TWA.classColors[c].r
-                        local g = TWA.classColors[c].g
-                        local b = TWA.classColors[c].b
-                        TWA.cells[index][i]:SetBackdropColor(r, g, b, .7);
-                        break
+            if i > 1 then
+                for c, n in next, TWA.raid do
+                    for _, raidMember in next, n do
+                        if raidMember == name then
+                            color = TWA.classColors[c].c
+                            local r = TWA.classColors[c].r
+                            local g = TWA.classColors[c].g
+                            local b = TWA.classColors[c].b
+                            TWA.cells[index][i]:SetBackdropColor(r, g, b, .7);
+                            break
+                        end
                     end
                 end
             end
+
 
             if TWA.marks[name] then
                 color = TWA.marks[name]

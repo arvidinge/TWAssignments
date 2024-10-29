@@ -323,6 +323,9 @@
             <OnMouseUp>
                 CloseDropDownMenus()
             </OnMouseUp>
+            <OnHide>
+                TWA_RosterManager_OnHide()
+            </OnHide>
         </Scripts>
     </Frame>
     <Frame name="TWA_Main" hidden="true" toplevel="true" parent="UIParent" movable="true"
@@ -641,6 +644,9 @@
             <OnMouseUp>
                 CloseDropDownMenus()
             </OnMouseUp>
+            <!-- <OnHide>
+                getglobal('TWA_RosterManager'):Hide()
+            </OnHide> -->
         </Scripts>
     </Frame>
 </Ui>

@@ -1,24 +1,33 @@
 ---@meta
 
----@alias WowClass 'druid' | 'hunter' | 'mage' | 'paladin' | 'priest' | 'rogue' | 'shaman' | 'warlock' | 'warrior'
----@alias Roster table<WowClass, table<integer, string>>
+---@alias TWAWowClass 'druid' | 'hunter' | 'mage' | 'paladin' | 'priest' | 'rogue' | 'shaman' | 'warlock' | 'warrior'
+---@alias TWARoster table<TWAWowClass, table<integer, string>>
 
----@class ClassSection
+---@class TWAClassSection
 ---@field expanded boolean
 ---@field frame Frame
 ---@field expandButton Button
 ---@field addPlayerButton Button
----@field class WowClass
+---@field class TWAWowClass
 ---@field frames table<integer, Frame>
-ClassSection = {}
+TWAClassSection = {}
 
----@class AddPlayers
----@field _currentClass WowClass|nil
+---@class TWAAddPlayers
+---@field _currentClass TWAWowClass|nil
 ---@field header FontString
 ---@field help FontString
 ---@field frame Frame
 ---@field done Button
 ---@field cancel Button
 ---@field editBox EditBox
-AddPlayers = {}
+TWAAddPlayers = {}
+
+
+---@class TWAWowColor
+---@field r number
+---@field g number
+---@field b number
+---@field a number|nil
+---@field c string Color code for use in fonstrings, example <code>|cffff7d0a</code>
+TWAWowColor = {}
 
