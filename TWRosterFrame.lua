@@ -9,7 +9,7 @@ local function strCapitalize(str)
   return string.upper(string.sub(str, 1, 1)) .. string.lower(string.sub(str, 2))
 end
 
--- AddPlayers Class Definition --
+-- AddPlayers Start #########################
 AddPlayers = {}
 AddPlayers.__index = AddPlayers
 
@@ -34,7 +34,6 @@ function AddPlayers:new(frame, editBox, header, help, done, cancel, class)
     help = help
   }
   setmetatable(obj, AddPlayers)
-
   return obj
 end
 
@@ -70,11 +69,54 @@ end
 function AddPlayers:GetClass()
   return self._currentClass
 end
+-- AddPlayers End #########################
 
--- AddPlayers End --
 
 
-local function BuildNameFrame(name, class, parent)
+---@return Frame
+local getRosterFrame = function() return getglobal('TWA_RosterManager') end
+
+---@type Frame
+local RosterFrameBox = nil;
+---@type Frame
+local RosterFrameScroll = nil;
+---@type Frame
+local RosterFrameContainer = nil;
+
+---@type AddPlayers
+local addPlayers;
+
+
+
+-- ClassSection Start #########################
+ClassSection = {}
+ClassSection.__index = ClassSection
+
+---@param frame Frame
+---@param expandButton Button
+---@param addPlayerButton Button
+---@param class WowClass
+function ClassSection:new(frame, expandButton, addPlayerButton, class)
+  ---@type ClassSection
+  local obj = {
+    class = class,
+    frame = frame,
+    expandButton = expandButton,
+    addPlayerButton = addPlayerButton,
+    expanded = false,
+    frames = {}
+  }
+
+  setmetatable(obj, ClassSection)
+  return obj
+end
+
+---@param self ClassSection
+---@param name string
+---@param class WowClass
+---@return Frame
+function ClassSection:_buildNameFrame(name, class)
+  local parent = self.frame;
   local frameName = "TWA_RosterEntry" .. name;
   local frame = CreateFrame("Frame", "TWA_RosterEntry" .. name, parent)
   frame:Hide()
@@ -104,53 +146,29 @@ local function BuildNameFrame(name, class, parent)
   );
   text:SetText(name)
 
-  local removeButton = CreateFrame("Button", "TWA_RosterEntryRemove" .. name, parent, "UIPanelCloseButton")
+  local removeButton = CreateFrame("Button", "TWA_RosterEntryRemove" .. name, frame, "UIPanelCloseButton")
   removeButton:SetPoint("Right", frame, "Right", 0, 0)
   removeButton:SetHeight(20);
   removeButton:SetWidth(20);
-  removeButton:SetScript("OnClick", function() end)
+  removeButton:SetScript("OnClick", function()
+    CloseDropDownMenus()
+    local classRoster = TWA.roster[self.class];
+    local indexToDelete = nil;
+    for i, curName in ipairs(classRoster) do
+      if curName == name then
+        indexToDelete = i;
+        break;
+      end
+    end
+    table.remove(classRoster, indexToDelete);
+    
+    self:Update();
+  end)
 
   removeButton:SetScript("OnEnter", function() texture:Show() end)
   removeButton:SetScript("OnLeave", function() texture:Hide() end)
 
   return frame;
-end
-
----@return Frame
-local getRosterFrame = function() return getglobal('TWA_RosterManager') end
-
----@type Frame
-local RosterFrameBox = nil;
----@type Frame
-local RosterFrameScroll = nil;
----@type Frame
-local RosterFrameContainer = nil;
-
----@type AddPlayers
-local addPlayers;
-
-
--- ClassSection class definition
-ClassSection = {}
-ClassSection.__index = ClassSection
-
----@param frame Frame
----@param expandButton Button
----@param addPlayerButton Button
----@param class WowClass
-function ClassSection:new(frame, expandButton, addPlayerButton, class)
-  ---@type ClassSection
-  local obj = {
-    class = class,
-    frame = frame,
-    expandButton = expandButton,
-    addPlayerButton = addPlayerButton,
-    expanded = false,
-    frames = {}
-  }
-
-  setmetatable(obj, ClassSection)
-  return obj
 end
 
 ---@param self ClassSection
@@ -165,7 +183,7 @@ function ClassSection:Expand()
 
     -- Build missing frame
     if frame == nil then
-      frame = BuildNameFrame(name, class, self.frame)
+      frame = self:_buildNameFrame(name, class)
       self.frames[name] = frame;
     end
 
@@ -199,12 +217,15 @@ function ClassSection:GetRoster()
   return TWA.roster[self.class]
 end
 
-
 ---@param self ClassSection
-function ClassSection:UpdateGUI()
+function ClassSection:Update()
+  TWA.fillRaidData()
+  TWA.persistRoster()
+
   if table.getn(self:GetRoster()) > 0 then
     self.expandButton:Enable()
   else
+    self:Collapse()
     self.expandButton:Disable()
   end
 
@@ -213,7 +234,7 @@ function ClassSection:UpdateGUI()
     self:Expand() -- this builds missing frames
   end
 end
--- ClassSection end
+-- ClassSection end #########################
 
 
 
@@ -252,6 +273,7 @@ function TWA_AddPlayersFrameLoaded()
 end
 
 local function HandleRosterExpandClick(class)
+  CloseDropDownMenus()
   local classSection = ClassSections[class];
   if classSection == nil then return end
 
@@ -350,16 +372,16 @@ function TWA_AddPlayersDoneClick()
   local section = ClassSections[addPlayers:GetClass()];
   assert(section ~= nil);
 
-  section:UpdateGUI()
-  TWA.fillRaidData()
-  TWA.persistRoster()
+  section:Update()
 end
 
 function TWA_AddPlayersCancelClick()
-  twadebug('cancel adding players')
+  addPlayers:SetText('')
+  addPlayers.frame:Hide();
 end
 
 local function HandleRosterAddPlayersClick(class)
+  CloseDropDownMenus()
   addPlayers:SetClass(class)
   addPlayers.frame:Show()
   addPlayers.editBox:SetFocus();
@@ -525,13 +547,4 @@ end
 
 function CloseTWARoster_OnClick()
   getglobal('TWA_RosterManager'):Hide()
-end
-
-function FixThisShit(e)
-  ---@type EditBox
-  local eb = getglobal('TWA_RosterManagerAddPlayersFrameEditBox')
-  ---@type ScrollFrame
-  local sf = getglobal('TWA_RosterManagerAddPlayersFrameScrollFrame')
-
-  e:SetHeight(400);
 end

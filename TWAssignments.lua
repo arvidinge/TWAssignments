@@ -314,30 +314,30 @@ end
 --    ['hunter'] = { 'Chlo', 'Zteban', 'Ruari' },
 -- }
 
-TWA.testRoster = {
-    ['druid'] = { "ChuckTesta" },
-    ['hunter'] = { "LennartBladh" },
-    ['mage'] = {},
-    ['paladin'] = {},
-    ['priest'] = {},
-    ['rogue'] = {},
-    ['shaman'] = {},
-    ['warlock'] = { "HotTopic" },
-    ['warrior'] = { "AnothaOne", "BigGuyForYou" },
-}
-TWA.roster = TWA.testRoster
-
--- TWA.roster = {
---     ['druid'] = {},
---     ['hunter'] = {},
+-- TWA.testRoster = {
+--     ['druid'] = { "ChuckTesta" },
+--     ['hunter'] = { "LennartBladh" },
 --     ['mage'] = {},
 --     ['paladin'] = {},
 --     ['priest'] = {},
 --     ['rogue'] = {},
 --     ['shaman'] = {},
---     ['warlock'] = {},
---     ['warrior'] = {},
+--     ['warlock'] = { "HotTopic" },
+--     ['warrior'] = { "AnothaOne", "BigGuyForYou" },
 -- }
+-- TWA.roster = TWA.testRoster
+
+TWA.roster = {
+    ['druid'] = {},
+    ['hunter'] = {},
+    ['mage'] = {},
+    ['paladin'] = {},
+    ['priest'] = {},
+    ['rogue'] = {},
+    ['shaman'] = {},
+    ['warlock'] = {},
+    ['warrior'] = {},
+}
 
 --default
 TWA.raid = {
