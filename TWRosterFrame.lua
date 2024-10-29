@@ -358,10 +358,10 @@ function TWA_AddPlayersDoneClick()
     end
 
     if not nameFound then
-      twadebug('name not taken, inserted "' .. newname .. '"')
+      -- twadebug('name not taken, inserted "' .. newname .. '"')
       table.insert(classRoster, strCapitalize(newname));
     else
-      twadebug('name taken')
+      -- twadebug('name taken')
     end
   end
 
