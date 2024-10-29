@@ -565,14 +565,22 @@ function TWA.fillRaidData()
 end
 
 function TWA.isPlayerOffline(name)
+    local playerFound = false;
     for i = 0, GetNumRaidMembers() do
         if (GetRaidRosterInfo(i)) then
             local n, _, _, _, _, _, z = GetRaidRosterInfo(i);
-            if n == name and z == 'Offline' then
-                return true
+            if n == name then
+                playerFound = true    
+                if z == 'Offline' then
+                    return true
+                end
             end
         end
+        if playerFound then break end
     end
+    if not playerFound then 
+        return true -- if not in group, treat as offline (can be in roster yet not in group)
+    end 
     return false
 end
 
@@ -802,7 +810,7 @@ function TWA.PopulateTWA()
                 name = ''
             end
 
-            if TWA.isPlayerOffline(name) then
+            if i > 1 and name ~= '' and TWA.isPlayerOffline(name) then
                 color = '|cffff0000'
             end
 
