@@ -418,6 +418,9 @@ TWA:SetScript("OnEvent", function()
             TWA.data = TWA_DATA
         end
         TWA.data = TWA_DATA
+        if TWA_ROSTER then
+            TWA.roster = TWA_ROSTER
+        end
         TWA.fillRaidData()
         TWA.PopulateTWA()
         tinsert(UISpecialFrames, "TWA_Main") --makes window close with Esc key
@@ -505,6 +508,9 @@ table.contains = function(tbl, value)
     return false
 end
 
+function TWA.saveRoster()
+    TWA_ROSTER = TWA.roster
+end
 
 function TWA.fillRaidData()
     twadebug('fill raid data')

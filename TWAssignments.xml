@@ -178,8 +178,115 @@
                     </Layer>
                 </Layers>
                 <Frames>
-                    <!-- add scrollframe in lua because xml is seemingly retarded -->
+                    <ScrollFrame name="TWA_RosterManagerAddPlayersFrameScrollFrame" inherits="UIPanelScrollFrameTemplate">
+                        <Size>
+                            <AbsDimension x="147" y="296"/>
+                        </Size>
+                        <Anchors>
+                            <Anchor point="TOPLEFT" relativeTo="TWA_RosterManagerAddPlayersFrame" relativePoint="TOPLEFT">
+                                <Offset>
+                                    <AbsDimension x="16" y="-70"/>
+                                </Offset>
+                            </Anchor>
+                        </Anchors>
+                        <ScrollChild>
+                            <EditBox name="TWA_RosterManagerAddPlayersFrameEditBox" multiLine="true" autoFocus="false" nonspacewrap="false">
+                                <Size>
+                                    <AbsDimension x="147" y="100"/>
+                                </Size>
+                                <Scripts>
+                                    <OnTextChanged>
+                                        TWA_HandleEditBox(this)
+                                    </OnTextChanged>
+                                    <OnEscapePressed>
+                                        this:ClearFocus();
+                                    </OnEscapePressed>
+                                </Scripts>
+                                <FontString inherits="GameFontHighlightSmall"/>
+                            </EditBox>
+                        </ScrollChild>
+                    </ScrollFrame>
+                    <Button name="TWA_RosterManagerAddPlayersFrameEditBoxCaptureClickArea">
+                        <Size>
+                            <AbsDimension x="147" y="296"/>
+                        </Size>
+                        <Anchors>
+                            <Anchor point="TOPLEFT" relativeTo="TWA_RosterManagerAddPlayersFrameEditBox"/>
+                        </Anchors>
+                        <Scripts>
+                            <OnClick>
+                                TWA_RosterManagerAddPlayersFrameEditBox:SetFocus();
+                            </OnClick>
+                        </Scripts>
+                    </Button>
+                    <Frame name="TWA_RosterManagerAddPlayersFrameEditBoxBackground">
+                        <Size>
+                            <AbsDimension x="180" y="306"/>
+                        </Size>
+                        <Anchors>
+                            <Anchor point="TOPLEFT" relativeTo="TWA_RosterManagerAddPlayersFrameScrollFrame" relativePoint="TOPLEFT">
+                                <Offset>
+                                    <AbsDimension x="-6" y="6"/>
+                                </Offset>
+                            </Anchor>
+                        </Anchors>
+                        <Backdrop bgFile="Interface\Tooltips\UI-Tooltip-Background" edgeFile="Interface\Tooltips\UI-Tooltip-Border" tile="true">
+                            <EdgeSize>
+                                <AbsValue val="16"/>
+                            </EdgeSize>
+                            <TileSize>
+                                <AbsValue val="16"/>
+                            </TileSize>
+                            <BackgroundInsets>
+                                <AbsInset left="5" right="5" top="5" bottom="5"/>
+                            </BackgroundInsets>
+                        </Backdrop>
+                        <Scripts>
+                            <OnLoad>
+                                SuperMacroSetDefaultTooltipColor(this)
+                            </OnLoad>
+                        </Scripts>
+                    </Frame>
+                    <Button name="$parentDone" inherits="UIPanelButtonTemplate2" text="Done">
+                        <Size>
+                            <AbsDimension x="60" y="20" />
+                        </Size>
+                        <Anchors>
+                            <Anchor point="BOTTOMLEFT">
+                                <Offset>
+                                    <AbsDimension x="11" y="10" />
+                                </Offset>
+                            </Anchor>
+                        </Anchors>
+                        <Scripts>
+                            <OnClick>
+                                TWA_AddPlayersDoneClick()
+                            </OnClick>
+                        </Scripts>
+                    </Button>
+                    <Button name="$parentCancel" inherits="UIPanelButtonTemplate2" text="Cancel">
+                        <Size>
+                            <AbsDimension x="60" y="20" />
+                        </Size>
+                        <Anchors>
+                            <Anchor point="BOTTOMRIGHT">
+                                <Offset>
+                                    <AbsDimension x="-11" y="10" />
+                                </Offset>
+                            </Anchor>
+                        </Anchors>
+                        <Scripts>
+                            <OnClick>
+                                TWA_AddPlayersCancelClick()
+                            </OnClick>
+                        </Scripts>
+                    </Button>
                 </Frames>
+                <Scripts>
+                    <OnLoad>
+                        TWA_AddPlayersFrameLoaded()
+                    </OnLoad>
+                </Scripts>
             </Frame>
             <Button name="$parentClose" inherits="UIPanelCloseButton">
                 <Size>
@@ -198,7 +305,7 @@
                     </OnClick>
                 </Scripts>
             </Button>
-            <Button name="$parentSavePreset" inherits="UIPanelButtonTemplate2" text="Save">
+            <Button name="$parentSaveRoster" inherits="UIPanelButtonTemplate2" text="Save">
                 <Size>
                     <AbsDimension x="60" y="20" />
                 </Size>
@@ -211,7 +318,7 @@
                 </Anchors>
                 <Scripts>
                     <OnClick>
-                        message("saved!")
+                        TWA_SaveRosterClick()
                     </OnClick>
                 </Scripts>
             </Button>

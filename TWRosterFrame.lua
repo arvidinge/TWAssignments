@@ -1,10 +1,84 @@
-local getRosterFrame = function() return getglobal('TWA_RosterManager') end
+-- Constants
+local ROSTERFRAME_CLASSSECTION_BASE_HEIGHT = 30;
+local ROSTERFRAME_CLASSSECTION_ENTRY_HEIGHT = 15;
+local ROSTERFRAME_CLASSSECTION_EXPANDMARGIN = 6;
+local ROSTERFRAME_CONTAINER_INEXPLICABLEOFFSET = 57;
+local SORTED_CLASS_NAMES = { 'druid', 'hunter', 'mage', 'paladin', 'priest', 'rogue', 'shaman', 'warlock', 'warrior' }
 
-local RosterClassSection_BaseHeight = 30;
-local RosterClassEntry_Height = 15;
-local RosterClassEntry_ExtraWidth = 40;
-local RosterClassSection_ExpandMargin = 6;
-local RosterContainerInexplicableOffset = 57
+local function strCapitalize(str)
+  return string.upper(string.sub(str, 1, 1)) .. string.lower(string.sub(str, 2))
+end
+
+-- AddPlayers Class Definition --
+AddPlayers = {}
+AddPlayers.__index = AddPlayers
+
+--- Creates a new AddPlayers instance
+---@param frame Frame
+---@param editBox EditBox
+---@param class WowClass|nil
+---@param header FontString
+---@param help FontString
+---@param done Button
+---@param cancel Button
+---@return AddPlayers
+function AddPlayers:new(frame, editBox, header, help, done, cancel, class)
+  ---@type AddPlayers
+  local obj = {
+    currentClass = class, -- Initialize with nil class
+    frame = frame,
+    editBox = editBox,
+    header = header,
+    done = done,
+    cancel = cancel,
+    help = help
+  }
+  setmetatable(obj, AddPlayers)
+
+  return obj
+end
+
+--- Gets the text from the editbox
+---@param self AddPlayers
+---@return string
+function AddPlayers:GetText()
+  return self.editBox:GetText() -- Assume EditBox has a method GetText
+end
+
+--- Sets the text in the editbox
+---@param self AddPlayers
+---@param text string
+function AddPlayers:SetText(text)
+  self.editBox:SetText(text) -- Assume EditBox has a method SetText
+end
+
+--- Sets the class you're adding players to
+---@param self AddPlayers
+---@param class WowClass
+function AddPlayers:SetClass(class)
+  self._currentClass = class
+  local color = TWA.classColors[class].c;
+  local reset = '|r'
+  self.header:SetText('Add new ' .. TWA.classColors[class].c .. strCapitalize(class)..'s')
+  self.help:SetText('Please enter one ' ..
+    color .. class .. reset .. ' name \nper row, then click Done to \nadd them to your roster.')
+end
+
+--- Gets the class you're adding players to
+---@param self AddPlayers
+---@return WowClass
+function AddPlayers:GetClass()
+  return self._currentClass
+end
+
+-- AddPlayers End --
+
+
+
+---@return Frame
+local getRosterFrame = function() return getglobal('TWA_RosterManager') end
+---@return EditBox
+local getAddPlayersEditBox = function() return getglobal('TWA_RosterManagerAddPlayersFrameEditBox') end
 
 ---@type Frame
 local RosterFrameBox = nil;
@@ -13,12 +87,17 @@ local RosterFrameScroll = nil;
 ---@type Frame
 local RosterFrameContainer = nil;
 
+---@type AddPlayers
+local addPlayers;
+
 ---@param frame Frame
 ---@param expandButton Button
 ---@param addPlayerButton Button
-local function newClassSection(frame, expandButton, addPlayerButton)
+---@param class WowClass
+function TWA_NewClassSection(frame, expandButton, addPlayerButton, class)
   ---@type ClassSection
   local classSection = {
+    class = class,
     frame = frame,
     expandButton = expandButton,
     addPlayerButton = addPlayerButton,
@@ -28,7 +107,7 @@ local function newClassSection(frame, expandButton, addPlayerButton)
   return classSection
 end
 
----@type table<string, ClassSection|nil>
+---@type table<WowClass, ClassSection|nil>
 local ClassSections = {
   ['druid'] = nil,
   ['hunter'] = nil,
@@ -40,10 +119,7 @@ local ClassSections = {
   ['warlock'] = nil,
   ['warrior'] = nil,
 }
-local sortedClassNames = { 'druid', 'hunter', 'mage', 'paladin', 'priest', 'rogue', 'shaman', 'warlock', 'warrior' }
-local function classToCapitalizedPlural(class)
-  return string.upper(string.sub(class, 1, 1)) .. string.sub(class, 2) .. 's'
-end
+
 function TWA_CloseRosterFrame()
   getRosterFrame():Hide()
 end
@@ -52,13 +128,26 @@ function TWA_ShowRosterFrame()
   getRosterFrame():Show()
 end
 
+function TWA_AddPlayersFrameLoaded()
+  local basename = 'TWA_RosterManagerAddPlayersFrame'
+  addPlayers = AddPlayers:new(
+    getglobal(basename),
+    getglobal(basename..'EditBox'),
+    getglobal(basename..'Header'),
+    getglobal(basename..'HelpText'),
+    getglobal(basename..'Done'),
+    getglobal(basename..'Cancel'),
+    nil
+  )
+end
+
 local function BuildNameFrame(name, class)
   local frameName = "TWA_RosterEntry" .. name;
   local parent = ClassSections[class].frame;
   local frame = CreateFrame("Frame", "TWA_RosterEntry" .. name, parent)
   frame:Hide()
   frame:SetPoint('Right', parent, 'Right', 0, 0)
-  frame:SetHeight(RosterClassEntry_Height)
+  frame:SetHeight(ROSTERFRAME_CLASSSECTION_ENTRY_HEIGHT)
   frame:SetWidth(parent:GetWidth() - 7)
 
   local text = frame:CreateFontString(frameName .. 'text', "OVERLAY", "GameFontNormalSmall")
@@ -73,61 +162,150 @@ local function BuildNameFrame(name, class)
   return frame;
 end
 
-local function HandleRosterExpandClick(class)
+local function ExpandClassSection(class)
   local classSection = ClassSections[class];
-  if classSection == nil then
-    twadebug('WTF?!?!')
-    return
-  end
+  if classSection == nil then return end
   local names = TWA.roster[class]
 
+  for i, name in pairs(names) do
+    ---@type Frame
+    local frame = classSection.frames[name]
+
+    -- Build missing frame
+    if frame == nil then
+      frame = BuildNameFrame(name, class)
+      classSection.frames[name] = frame;
+    end
+
+    frame:SetPoint("TopRight", classSection.frame, "TopRight", 0,
+      -ROSTERFRAME_CLASSSECTION_BASE_HEIGHT - (i - 1) * ROSTERFRAME_CLASSSECTION_ENTRY_HEIGHT)
+    frame:Show();
+  end
+
+  classSection.frame:SetHeight(
+    ROSTERFRAME_CLASSSECTION_BASE_HEIGHT +
+    table.getn(names) * ROSTERFRAME_CLASSSECTION_ENTRY_HEIGHT +
+    ROSTERFRAME_CLASSSECTION_EXPANDMARGIN)
+
+  classSection.expanded = true;
+  classSection.expandButton:SetText("v");
+end
+
+local function CollapseClassSection(class)
+  local classSection = ClassSections[class];
+  if classSection == nil then return end
+  for _, frame in pairs(classSection.frames) do
+    frame:Hide()
+  end
+  classSection.frame:SetHeight(ROSTERFRAME_CLASSSECTION_BASE_HEIGHT);
+  classSection.expandButton:SetText(">");
+  classSection.expanded = false;
+end
+
+local function HandleRosterExpandClick(class)
+  local classSection = ClassSections[class];
+  if classSection == nil then return end
+
   if not classSection.expanded then
-    for i, name in pairs(names) do
-      ---@type Frame
-      local frame = classSection.frames[name]
-
-      -- Build missing frame
-      if frame == nil then
-        frame = BuildNameFrame(name, class)
-        classSection.frames[name] = frame;
-      end
-
-      frame:SetPoint("TopRight", classSection.frame, "TopRight", 0,
-        -RosterClassSection_BaseHeight - (i - 1) * RosterClassEntry_Height)
-      frame:Show();
-    end
-
-    classSection.frame:SetHeight(
-      RosterClassSection_BaseHeight +
-      table.getn(names) * RosterClassEntry_Height +
-      RosterClassSection_ExpandMargin)
-
-    classSection.expanded = true;
-    classSection.expandButton:SetText("v");
+    ExpandClassSection(class)
   else
-    for _, frame in pairs(classSection.frames) do
-      frame:Hide()
-    end
-    classSection.frame:SetHeight(RosterClassSection_BaseHeight);
-    classSection.expandButton:SetText(">");
-    classSection.expanded = false;
+    CollapseClassSection(class)
   end
 end
 
+function TWA_HandleEditBox(editBox)
+  local scrollBar = getglobal(editBox:GetParent():GetName() .. "ScrollBar")
+  editBox:GetParent():UpdateScrollChildRect();
+
+  local _, max = scrollBar:GetMinMaxValues();
+  scrollBar.prevMaxValue = scrollBar.prevMaxValue or max
+
+  if math.abs(scrollBar.prevMaxValue - scrollBar:GetValue()) <= 1 then
+    -- if scroll is down and add new line then move scroll
+    scrollBar:SetValue(max);
+  end
+  if max ~= scrollBar.prevMaxValue then
+    -- save max value
+    scrollBar.prevMaxValue = max
+  end
+end
+
+local function splitAndTrim(input)
+  local result = {}
+  local start = 1
+  while true do
+    local newlineStart, newlineEnd = string.find(input, "\n", start)
+    local line
+    if newlineStart then
+      line = string.sub(input, start, newlineStart - 1)
+      start = newlineEnd + 1
+    else
+      line = string.sub(input, start)
+    end
+    local trimmed = string.gsub(line, "^%s*(.-)%s*$", "%1")
+    if trimmed ~= "" then
+      table.insert(result, trimmed)
+    end
+    if not newlineStart then
+      break
+    end
+  end
+
+  return result
+end
+
+function TWA_SaveRosterClick()
+  twadebug('save roster')
+end
+
+function TWA_AddPlayersDoneClick()
+  local eb = getAddPlayersEditBox();
+  local inputstr = eb:GetText();
+
+  local names = splitAndTrim(inputstr)
+  local invalidNames = {}
+
+  -- If any invalid names, error messaage and return
+  for i, name in ipairs(names) do
+    if string.find(name, "[0-9%s]") or string.len(name) > 12 then
+      table.insert(invalidNames, name);
+    end
+  end
+  if table.getn(invalidNames) > 0 then
+    local errmsg = "These names are invalid:\n"
+    for i, name in pairs(invalidNames) do
+      errmsg = errmsg .. name .. '\n'
+    end
+    message(errmsg)
+    return
+  end
+
+  -- Insert into roster if they don't already exist
+  local classRoster = TWA.roster[addPlayers:GetClass()];
+  for _, name in ipairs(names) do
+    if not table.contains(classRoster, name) then
+      table.insert(classRoster, strCapitalize(name));
+    end
+  end
+    
+  addPlayers:SetText('')
+  addPlayers.frame:Hide()
+  if ClassSections[addPlayers:GetClass()].expanded then
+    CollapseClassSection(addPlayers:GetClass())
+    ExpandClassSection(addPlayers:GetClass()) -- this adds the new frames
+  end
+
+  TWA.fillRaidData() -- Push new roster to raid
+  TWA.saveRoster() -- persist roster to disk
+end
+
+function TWA_AddPlayersCancelClick()
+  twadebug('cancel adding players')
+end
+
 local function HandleRosterAddPlayersClick(class)
-  ---@type Frame
-  local addFrame = getglobal('TWA_RosterManagerAddPlayersFrame');
-  ---@type FontString
-  local addFrameHeader = getglobal('TWA_RosterManagerAddPlayersFrameHeader')
-  ---@type FontString
-  local addFrameHelp = getglobal('TWA_RosterManagerAddPlayersFrameHelpText')
-  local color = TWA.classColors[class].c;
-  local reset = '|r'
-  addFrameHeader:SetText('Add new ' .. TWA.classColors[class].c .. classToCapitalizedPlural(class))
-  addFrameHelp:SetText('Please enter one ' ..
-  color .. class .. reset .. ' name \nper row, then click Done to \nadd them to your roster.')
-  addFrame:Show()
-  -- message(class)
+  addPlayers:SetClass(class)
+  addPlayers.frame:Show()
 end
 
 local function CalcNewContainerHeight()
@@ -140,7 +318,7 @@ end
 
 local function CalcTopOfClassSection(class)
   local indexOfClass = 0;
-  for i, curClass in ipairs(sortedClassNames) do
+  for i, curClass in ipairs(SORTED_CLASS_NAMES) do
     if curClass == class then
       indexOfClass = i;
       break;
@@ -149,18 +327,18 @@ local function CalcTopOfClassSection(class)
 
   local heightOfPrecedingSections = 0;
   for i = 1, indexOfClass - 1 do
-    heightOfPrecedingSections = heightOfPrecedingSections + ClassSections[sortedClassNames[i]].frame:GetHeight()
+    heightOfPrecedingSections = heightOfPrecedingSections + ClassSections[SORTED_CLASS_NAMES[i]].frame:GetHeight()
   end
   return -heightOfPrecedingSections;
 end
 
 local function ResizeListAfter_aux(class)
-  ClassSections[class].frame:SetPoint("Top", RosterFrameContainer, "Top", RosterContainerInexplicableOffset / 2,
+  ClassSections[class].frame:SetPoint("Top", RosterFrameContainer, "Top", ROSTERFRAME_CONTAINER_INEXPLICABLEOFFSET / 2,
     CalcTopOfClassSection(class));
-  if class == sortedClassNames[9] then return end
-  for i, name in ipairs(sortedClassNames) do
+  if class == SORTED_CLASS_NAMES[9] then return end
+  for i, name in ipairs(SORTED_CLASS_NAMES) do
     if name == class then
-      ResizeListAfter_aux(sortedClassNames[i + 1])
+      ResizeListAfter_aux(SORTED_CLASS_NAMES[i + 1])
     end
   end
 end
@@ -216,13 +394,13 @@ function TWA_BuildRosterFrame()
   end)
   RosterFrameScroll:SetScrollChild(RosterFrameContainer);
 
-  RosterFrameContainer:SetPoint("Top", RosterFrameBox, "Top", RosterContainerInexplicableOffset / 2, 0)
+  RosterFrameContainer:SetPoint("Top", RosterFrameBox, "Top", ROSTERFRAME_CONTAINER_INEXPLICABLEOFFSET / 2, 0)
 
   local i = 1;
-  for _, class in ipairs(sortedClassNames) do
+  for _, class in ipairs(SORTED_CLASS_NAMES) do
     local classSection = TWARoster_BuildClassSection(RosterFrameContainer, class);
     ClassSections[class] = classSection;
-    classSection.frame:SetPoint("Top", RosterFrameContainer, "Top", 0, -RosterClassSection_BaseHeight * i)
+    classSection.frame:SetPoint("Top", RosterFrameContainer, "Top", 0, -ROSTERFRAME_CLASSSECTION_BASE_HEIGHT * i)
     classSection.frame:SetScript("OnSizeChanged", resizeCallbacks[class])
   end
 
@@ -243,8 +421,8 @@ function TWARoster_BuildClassSection(container, class)
   }
   local classSectionFrame = CreateFrame("Frame", baseName, container)
   classSectionFrame:SetPoint("Top", container, "Top", 0, 0)
-  classSectionFrame:SetHeight(RosterClassSection_BaseHeight);
-  classSectionFrame:SetWidth(container:GetWidth() + RosterContainerInexplicableOffset)
+  classSectionFrame:SetHeight(ROSTERFRAME_CLASSSECTION_BASE_HEIGHT);
+  classSectionFrame:SetWidth(container:GetWidth() + ROSTERFRAME_CONTAINER_INEXPLICABLEOFFSET)
   classSectionFrame:SetBackdrop(backdrop);
   classSectionFrame:SetBackdropColor(1, 1, 1, 0.05)
 
@@ -265,17 +443,16 @@ function TWARoster_BuildClassSection(container, class)
     TWA.classColors[class].b
   )
   className:SetPoint("TopLeft", classSectionFrame, "TopLeft", 32, -9)
-  className:SetText(classToCapitalizedPlural(class))
+  className:SetText(strCapitalize(class)..'s')
 
   local addPlayerButton = CreateFrame("Button", baseName .. "AddPlayer", classSectionFrame, "UIPanelButtonTemplate2")
-  -- addPlayerButton:SetFont("GameFontNormalSmall",70)
   addPlayerButton:SetPoint("TopRight", classSectionFrame, "TopRight", -4, 0)
   addPlayerButton:SetWidth(100)
   addPlayerButton:SetHeight(30)
   addPlayerButton:SetText('Add Player(s)')
   addPlayerButton:SetScript("OnClick", function() HandleRosterAddPlayersClick(class) end)
 
-  return newClassSection(classSectionFrame, expandButton, nil); -- todo add player button
+  return TWA_NewClassSection(classSectionFrame, expandButton, addPlayerButton, class);
 end
 
 function TWARoster_OnClick()
