@@ -39,6 +39,24 @@ TWA:RegisterEvent("CHAT_MSG_WHISPER")
 
 TWA.data = {}
 
+---All conditions must be satisfied to make changes:
+---1. The player is in a raid group
+---1. The player is either leader or assistant
+---1. The leader of the raid is not offline (since he is syncmaster)
+---@return boolean
+function TWA_PlayerCanMakeChanges()
+    if GetNumRaidMembers() == 0 then
+        twaprint('You must be in a raid group to do that.')
+        return false
+    end
+    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
+        twaprint("You need to be a raid leader or assistant to do that.")
+        return false
+    end
+    -- todo: check leader offline
+    return true
+end
+
 local twa_templates = {
     ['trash1'] = {
         [1] = { "Skull", "-", "-", "-", "-", "-", "-" },
@@ -422,7 +440,7 @@ TWA:SetScript("OnEvent", function()
     if not event then return end
 
     if event == "ADDON_LOADED" and arg1 == "TWAssignments" then
-        twaprint("TWA Loaded")
+        twaprint("ADDON_LOADED")
         if not TWA_PRESETS then
             TWA_PRESETS = {}
         end
@@ -444,9 +462,11 @@ TWA:SetScript("OnEvent", function()
     end
 
     if event == "RAID_ROSTER_UPDATE" then
-        twadebug('raid roster update event')
+        twadebug("RAID_ROSTER_UPDATE")
         TWA.fillRaidData()
         TWA.PopulateTWA()
+
+        -- TODO: Set which group member is raid leader. Only the leader can handle the sync requests.
     end
 
     if event == 'CHAT_MSG_ADDON' and arg1 == "TWA" then
@@ -1390,10 +1410,7 @@ TWA.currentRow = 0
 TWA.currentCell = 0
 
 function TWCell_OnClick(id)
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
-        twaprint("You need to be a raid leader or assistant to do that")
-        return
-    end
+    if not TWA_PlayerCanMakeChanges() then return end
     TWA.currentRow = math.floor(id / 100)
     TWA.currentCell = id - TWA.currentRow * 100
 
@@ -1422,10 +1439,7 @@ function TWCell_OnClick(id)
 end
 
 function AddLine_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
-        twaprint("You need to be a raid leader or assistant to do that")
-        return
-    end
+    if not TWA_PlayerCanMakeChanges() then return end
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "AddLine", "RAID")
 end
 
@@ -1437,10 +1451,7 @@ function TWA.AddLine()
 end
 
 function SpamRaid_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
-        twaprint("You need to be a raid leader or assistant to do that")
-        return
-    end
+    if not TWA_PlayerCanMakeChanges() then return end
     ChatThrottleLib:SendChatMessage("BULK", "TWA", "======= RAID ASSIGNMENTS =======", "RAID_WARNING")
 
     for _, data in next, TWA.data do
@@ -1481,10 +1492,7 @@ function SpamRaid_OnClick()
 end
 
 function RemRow_OnClick(id)
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
-        twaprint("You need to be a raid leader or assistant to do that")
-        return
-    end
+    if not TWA_PlayerCanMakeChanges() then return end
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RemRow=" .. id, "RAID")
 end
 
@@ -1510,10 +1518,7 @@ function TWA.RemRow(id, sender)
 end
 
 function Reset_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
-        twaprint("You need to be a raid leader or assistant to do that")
-        return
-    end
+    if not TWA_PlayerCanMakeChanges() then return end
 
     StaticPopupDialogs["TWA_RESET_CONFIRM"] = {
         text = "Are you sure you want to clear current assignments?",
@@ -1889,19 +1894,13 @@ function buildTemplatesDropdown()
 end
 
 function Templates_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
-        twaprint("You need to be a raid leader or assistant to do that")
-        return
-    end
+    if not TWA_PlayerCanMakeChanges() then return end
     UIDropDownMenu_Initialize(TWATemplates, buildTemplatesDropdown, "MENU");
     ToggleDropDownMenu(1, nil, TWATemplates, "cursor", 2, 3);
 end
 
 function LoadPreset_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
-        twaprint("You need to be a raid leader or assistant to do that")
-        return
-    end
+    if not TWA_PlayerCanMakeChanges() then return end
     if TWA.loadedTemplate == '' then
         twaprint('Please load a template first.')
     else
@@ -1922,10 +1921,7 @@ function LoadPreset_OnClick()
 end
 
 function SavePreset_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
-        twaprint("You need to be a raid leader or assistant to do that")
-        return
-    end
+    if not TWA_PlayerCanMakeChanges() then return end
     if TWA.loadedTemplate == '' then
         twaprint('Please load a template first.')
     else
@@ -1942,10 +1938,7 @@ function SavePreset_OnClick()
 end
 
 function SyncBW_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
-        twaprint("You need to be a raid leader or assistant to do that")
-        return
-    end
+    if not TWA_PlayerCanMakeChanges() then return end
     ChatThrottleLib:SendAddonMessage("ALERT", "TWABW", "BWSynch=start", "RAID")
 
     for _, data in next, TWA.data do
