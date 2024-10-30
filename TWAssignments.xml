@@ -469,7 +469,6 @@
                 </Anchors>
                 <Scripts>
                     <OnClick>
-                        TestFn()
                         AddLine_OnClick()
                         CloseDropDownMenus()
                     </OnClick>
