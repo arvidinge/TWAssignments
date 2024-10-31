@@ -36,6 +36,7 @@ TWA:RegisterEvent("ADDON_LOADED")
 TWA:RegisterEvent("RAID_ROSTER_UPDATE")
 TWA:RegisterEvent("CHAT_MSG_ADDON")
 TWA:RegisterEvent("CHAT_MSG_WHISPER")
+TWA:RegisterEvent("PARTY_MEMBERS_CHANGED")
 
 TWA.data = {}
 
@@ -44,8 +45,8 @@ TWA.data = {}
 ---1. The player is either leader or assistant
 ---1. The leader of the raid is not offline (since he is syncmaster)
 ---@return boolean
-function TWA_PlayerCanMakeChanges()
-    if GetNumRaidMembers() == 0 then
+function TWA_CanMakeChanges()
+    if not TWA.InRaid() then
         twaprint('You must be in a raid group to do that.')
         return false
     end
@@ -436,6 +437,80 @@ TWA.groups = {
     ['Group 8'] = TWA.classColors['priest'].c,
 }
 
+---@return boolean
+function TWA.InParty()
+    return GetNumPartyMembers() > 0
+end
+
+---@return boolean
+function TWA.InRaid()
+    return GetNumRaidMembers() > 0
+end
+
+---@type TWAGroupState
+TWA.playerGroupState = nil
+
+---Updates the player's group state, and fires callbacks on changes as appropriate
+function TWA.PlayerGroupStateUpdate()
+    local debug = false
+    local localdebug = function(str) if debug then twadebug(str) end end
+    local done = function ()
+        localdebug('TWA.playerGroupState new |cffffaa00'..TWA.playerGroupState..'|r')
+        localdebug('TWA.PlayerGroupStateUpdate() |cffff0000END|r')
+        localdebug('---')
+    end;
+
+    localdebug('---')
+    localdebug('TWA.PlayerGroupStateUpdate() |cff00ff00START|r')
+    local prevState = TWA.playerGroupState
+    localdebug('TWA.playerGroupState current |cffaaff00'..(prevState and prevState or 'nil')..'|r')
+
+    localdebug('checking if we just logged in?')
+    if TWA.playerGroupState == nil then
+        TWA.playerGroupState = 'alone'
+        if TWA.InParty() then
+            localdebug('  player has logged in while in party')
+            TWA.playerGroupState = 'party'
+        end
+        if TWA.InRaid() then
+            localdebug('  player has logged in while in raid')
+            TWA.playerGroupState = 'raid'
+        end
+        done() return
+    end
+
+    localdebug('checking if joined group?')
+    if TWA.playerGroupState == 'alone' and TWA.InParty() then
+        localdebug('  player just joined a group')
+        TWA.playerGroupState = 'party'
+
+        localdebug('  subcheck: checking if joined raid?')
+        if TWA.InRaid() then
+            localdebug('    its a raid')
+            TWA.playerGroupState = 'raid'
+            -- todo request full sync
+        end
+        done() return
+    end
+
+    localdebug('checking if left?')
+    if (TWA.playerGroupState == 'party' or TWA.playerGroupState == 'raid') and not TWA.InParty() then
+        localdebug('  player just left group')
+        TWA.playerGroupState = 'alone'
+        done() return
+    end
+
+    localdebug('checking if just convert?')
+    if TWA.playerGroupState == 'party' and TWA.InRaid() then
+        localdebug('  party was just converted to raid')
+        TWA.playerGroupState = 'raid'
+        done() return
+    end 
+
+    done() return
+end
+
+
 TWA:SetScript("OnEvent", function()
     if not event then return end
 
@@ -455,6 +530,9 @@ TWA:SetScript("OnEvent", function()
         if TWA_ROSTER and TWA.testRoster == nil then
             TWA.roster = TWA_ROSTER
         end
+
+        TWA.PlayerGroupStateUpdate()
+
         TWA.fillRaidData()
         TWA.PopulateTWA()
         tinsert(UISpecialFrames, "TWA_Main") --makes window close with Esc key
@@ -463,8 +541,17 @@ TWA:SetScript("OnEvent", function()
 
     if event == "RAID_ROSTER_UPDATE" then
         twadebug("RAID_ROSTER_UPDATE")
+        TWA.PlayerGroupStateUpdate()
         TWA.fillRaidData()
         TWA.PopulateTWA()
+
+        -- TODO: Set which group member is raid leader. Only the leader can handle the sync requests.
+    end
+
+    if event == "PARTY_MEMBERS_CHANGED" then
+        twadebug("PARTY_MEMBERS_CHANGED")
+
+        TWA.PlayerGroupStateUpdate()
 
         -- TODO: Set which group member is raid leader. Only the leader can handle the sync requests.
     end
@@ -1410,7 +1497,7 @@ TWA.currentRow = 0
 TWA.currentCell = 0
 
 function TWCell_OnClick(id)
-    if not TWA_PlayerCanMakeChanges() then return end
+    if not TWA_CanMakeChanges() then return end
     TWA.currentRow = math.floor(id / 100)
     TWA.currentCell = id - TWA.currentRow * 100
 
@@ -1439,7 +1526,7 @@ function TWCell_OnClick(id)
 end
 
 function AddLine_OnClick()
-    if not TWA_PlayerCanMakeChanges() then return end
+    if not TWA_CanMakeChanges() then return end
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "AddLine", "RAID")
 end
 
@@ -1451,7 +1538,7 @@ function TWA.AddLine()
 end
 
 function SpamRaid_OnClick()
-    if not TWA_PlayerCanMakeChanges() then return end
+    if not TWA_CanMakeChanges() then return end
     ChatThrottleLib:SendChatMessage("BULK", "TWA", "======= RAID ASSIGNMENTS =======", "RAID_WARNING")
 
     for _, data in next, TWA.data do
@@ -1492,7 +1579,7 @@ function SpamRaid_OnClick()
 end
 
 function RemRow_OnClick(id)
-    if not TWA_PlayerCanMakeChanges() then return end
+    if not TWA_CanMakeChanges() then return end
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RemRow=" .. id, "RAID")
 end
 
@@ -1518,7 +1605,7 @@ function TWA.RemRow(id, sender)
 end
 
 function Reset_OnClick()
-    if not TWA_PlayerCanMakeChanges() then return end
+    if not TWA_CanMakeChanges() then return end
 
     StaticPopupDialogs["TWA_RESET_CONFIRM"] = {
         text = "Are you sure you want to clear current assignments?",
@@ -1894,13 +1981,13 @@ function buildTemplatesDropdown()
 end
 
 function Templates_OnClick()
-    if not TWA_PlayerCanMakeChanges() then return end
+    if not TWA_CanMakeChanges() then return end
     UIDropDownMenu_Initialize(TWATemplates, buildTemplatesDropdown, "MENU");
     ToggleDropDownMenu(1, nil, TWATemplates, "cursor", 2, 3);
 end
 
 function LoadPreset_OnClick()
-    if not TWA_PlayerCanMakeChanges() then return end
+    if not TWA_CanMakeChanges() then return end
     if TWA.loadedTemplate == '' then
         twaprint('Please load a template first.')
     else
@@ -1921,7 +2008,7 @@ function LoadPreset_OnClick()
 end
 
 function SavePreset_OnClick()
-    if not TWA_PlayerCanMakeChanges() then return end
+    if not TWA_CanMakeChanges() then return end
     if TWA.loadedTemplate == '' then
         twaprint('Please load a template first.')
     else
@@ -1938,7 +2025,7 @@ function SavePreset_OnClick()
 end
 
 function SyncBW_OnClick()
-    if not TWA_PlayerCanMakeChanges() then return end
+    if not TWA_CanMakeChanges() then return end
     ChatThrottleLib:SendAddonMessage("ALERT", "TWABW", "BWSynch=start", "RAID")
 
     for _, data in next, TWA.data do
