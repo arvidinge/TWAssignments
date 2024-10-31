@@ -1,8 +1,8 @@
--- new features:
--- confirm on reset
--- roster
 local addonVer = "1.0.0.0" --don't use letters or numbers > 10
 local me = UnitName('player')
+local LOGIN_GRACE_PERIOD = 5.0 -- seconds
+
+local addonLoadedTimestamp = 0;
 
 TWA = CreateFrame("Frame")
 
@@ -54,7 +54,7 @@ function TWA_CanMakeChanges()
         twaprint("You need to be a raid leader or assistant to do that.")
         return false
     end
-    -- todo: check leader offline
+    -- todo: check if leader offline
     return true
 end
 
@@ -447,75 +447,133 @@ function TWA.InRaid()
     return GetNumRaidMembers() > 0
 end
 
----@type TWAGroupState
-TWA.playerGroupState = nil
-
----Updates the player's group state, and fires callbacks on changes as appropriate
-function TWA.PlayerGroupStateUpdate()
-    local debug = false
-    local localdebug = function(str) if debug then twadebug(str) end end
-    local done = function ()
-        localdebug('TWA.playerGroupState new |cffffaa00'..TWA.playerGroupState..'|r')
-        localdebug('TWA.PlayerGroupStateUpdate() |cffff0000END|r')
-        localdebug('---')
-    end;
-
-    localdebug('---')
-    localdebug('TWA.PlayerGroupStateUpdate() |cff00ff00START|r')
-    local prevState = TWA.playerGroupState
-    localdebug('TWA.playerGroupState current |cffaaff00'..(prevState and prevState or 'nil')..'|r')
-
-    localdebug('checking if we just logged in?')
-    if TWA.playerGroupState == nil then
-        TWA.playerGroupState = 'alone'
-        if TWA.InParty() then
-            localdebug('  player has logged in while in party')
-            TWA.playerGroupState = 'party'
-        end
-        if TWA.InRaid() then
-            localdebug('  player has logged in while in raid')
-            TWA.playerGroupState = 'raid'
-        end
-        done() return
-    end
-
-    localdebug('checking if joined group?')
-    if TWA.playerGroupState == 'alone' and TWA.InParty() then
-        localdebug('  player just joined a group')
-        TWA.playerGroupState = 'party'
-
-        localdebug('  subcheck: checking if joined raid?')
-        if TWA.InRaid() then
-            localdebug('    its a raid')
-            TWA.playerGroupState = 'raid'
-            -- todo request full sync
-        end
-        done() return
-    end
-
-    localdebug('checking if left?')
-    if (TWA.playerGroupState == 'party' or TWA.playerGroupState == 'raid') and not TWA.InParty() then
-        localdebug('  player just left group')
-        TWA.playerGroupState = 'alone'
-        done() return
-    end
-
-    localdebug('checking if just convert?')
-    if TWA.playerGroupState == 'party' and TWA.InRaid() then
-        localdebug('  party was just converted to raid')
-        TWA.playerGroupState = 'raid'
-        done() return
-    end 
-
-    done() return
+---As a non-leader, request full sync of data (when you join the group for example)
+function TWA.RequestSync()
+    twadebug('i request sync')
+    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RequestSync=" .. me, "RAID")
 end
 
+---As a leader, broadcast a full sync of data (when a player requests it, or the group is converted from party to raid).
+---Does nothing if not a raid leader.
+function TWA.BroadcastSync()
+    if not IsRaidLeader() then return end
+    twadebug('i broadcast sync')
+    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=start", "RAID")
+    for _, data in next, TWA.data do
+        ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=" ..
+            data[1] .. '=' ..
+            data[2] .. '=' ..
+            data[3] .. '=' ..
+            data[4] .. '=' ..
+            data[5] .. '=' ..
+            data[6] .. '=' ..
+            data[7], "RAID")
+    end
+    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=end", "RAID")
+end
+
+---@type TWAGroupState
+TWA.playerGroupState = nil
+local function setGroupState(newState)
+    local oldState = TWA.playerGroupState or 'NIL';
+    if oldState ~= newState then 
+        twadebug('state changed from '..oldState..' to '..newState) 
+    end
+    TWA.playerGroupState = newState
+end
+
+---@type table<string, Frame>
+local timeOuts = {}
+
+function TWA.newTimeoutName()
+    if table.getn(timeOuts) == 0 then return tostring(1) end
+    local i = 1;
+    local keys = {}
+    for key, _ in pairs(timeOuts) do
+        table.insert(keys, key)
+    end
+    table.sort(keys)
+    while (i<100) do
+        if keys[i] ~= tostring(i) then return tostring(i) end
+        i = i+1
+    end
+    return nil
+end
+
+function TWA.setTimeout(callback, delay)
+    local id = TWA.newTimeoutName()
+    if not id then twaerror('too many timeouts') return end
+    twadebug('timeout name is '..id)
+    local frameName = "TWA_TimeOutFrame"..id
+    local waitFrame = getglobal(frameName) or CreateFrame("Frame", frameName)
+    timeOuts[id] = waitFrame
+    local startTime = GetTime()
+    
+    -- Set the OnUpdate handler
+    waitFrame:SetScript("OnUpdate", function()
+        if GetTime() - startTime >= delay then
+            twadebug('fire callback id '..id)
+            callback()
+            waitFrame:SetScript("OnUpdate", nil)
+            timeOuts[id] = nil
+        end
+    end)
+end
+
+---Updates the player's group state, and runs appropriate side effects on changes (for example, request sync if logging in while in raid)
+function TWA.PlayerGroupStateUpdate()
+    if TWA.playerGroupState == nil or addonLoadedTimestamp + LOGIN_GRACE_PERIOD < GetTime() then
+        twadebug('i just logged in')
+        -- reloaded ui or logged in
+        setGroupState('alone')
+
+        -- caution: these lines only work for reloading ui, since when you log in, you are not actually considered as in the party until half a second or so later.
+        if TWA.InParty() then
+            -- logged in while in party
+            setGroupState('party')
+        else
+            twadebug('not in party')
+        end
+        if TWA.InRaid() then
+            setGroupState('raid')
+            -- logged in while in raid group
+            if not IsRaidLeader() then TWA.RequestSync() end
+        else
+            twadebug('not in raid')
+        end
+
+    elseif TWA.playerGroupState == 'alone' and TWA.InParty() then
+        -- joined a group
+        setGroupState('party')
+
+        if TWA.InRaid() then
+            -- joined a raid
+            setGroupState('raid')
+            TWA.RequestSync()
+        end
+    elseif (TWA.playerGroupState == 'party' or TWA.playerGroupState == 'raid') and not TWA.InParty() then
+        -- left the group
+        setGroupState('alone')
+    elseif TWA.playerGroupState == 'party' and TWA.InRaid() then
+        -- party was converted to raid
+        setGroupState('raid')
+        if IsRaidLeader() then TWA.BroadcastSync() end
+    end
+end
 
 TWA:SetScript("OnEvent", function()
     if not event then return end
 
     if event == "ADDON_LOADED" and arg1 == "TWAssignments" then
         twaprint("ADDON_LOADED")
+        addonLoadedTimestamp = GetTime()
+        twaprint('time is '..addonLoadedTimestamp)
+
+        twaprint('setting timeOuts')
+        TWA.setTimeout(function() twaprint('its 5 sec later now') end, 5)
+        TWA.setTimeout(function() twaprint('its 4 sec later now') end, 5)
+        TWA.setTimeout(function() twaprint('its 7 sec later now') end, 5)
+
         if not TWA_PRESETS then
             TWA_PRESETS = {}
         end
@@ -532,11 +590,10 @@ TWA:SetScript("OnEvent", function()
         end
 
         TWA.PlayerGroupStateUpdate()
-
         TWA.fillRaidData()
         TWA.PopulateTWA()
         tinsert(UISpecialFrames, "TWA_Main") --makes window close with Esc key
-        tinsert(UISpecialFrames, "TWA_RosterManager") 
+        tinsert(UISpecialFrames, "TWA_RosterManager")
     end
 
     if event == "RAID_ROSTER_UPDATE" then
@@ -544,16 +601,11 @@ TWA:SetScript("OnEvent", function()
         TWA.PlayerGroupStateUpdate()
         TWA.fillRaidData()
         TWA.PopulateTWA()
-
-        -- TODO: Set which group member is raid leader. Only the leader can handle the sync requests.
     end
 
     if event == "PARTY_MEMBERS_CHANGED" then
         twadebug("PARTY_MEMBERS_CHANGED")
-
         TWA.PlayerGroupStateUpdate()
-
-        -- TODO: Set which group member is raid leader. Only the leader can handle the sync requests.
     end
 
     if event == 'CHAT_MSG_ADDON' and arg1 == "TWA" then
@@ -677,7 +729,7 @@ function TWA.isPlayerOffline(name)
         if (GetRaidRosterInfo(i)) then
             local n, _, _, _, _, _, z = GetRaidRosterInfo(i);
             if n == name then
-                playerFound = true    
+                playerFound = true
                 if z == 'Offline' then
                     return true
                 end
@@ -685,9 +737,9 @@ function TWA.isPlayerOffline(name)
         end
         if playerFound then break end
     end
-    if not playerFound then 
+    if not playerFound then
         return true -- if not in group, treat as offline (can be in roster yet not in group)
-    end 
+    end
     return false
 end
 
@@ -701,34 +753,18 @@ function TWA.handleSync(_, t, _, sender)
         return true
     end
 
-    if string.find(t, 'SendTable=', 1, true) then
-        local sendEx = string.split(t, '=')
-        if not sendEx[2] then
-            return false
-        end
-
-        if sendEx[2] == me then
-            ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=start", "RAID")
-            for _, data in next, TWA.data do
-                ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=" ..
-                    data[1] .. '=' ..
-                    data[2] .. '=' ..
-                    data[3] .. '=' ..
-                    data[4] .. '=' ..
-                    data[5] .. '=' ..
-                    data[6] .. '=' ..
-                    data[7], "RAID")
-            end
-            ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=end", "RAID")
-        end
-        return true
+    if string.find(t, 'RequestSync=', 1, true) and sender ~= me then
+        twadebug(sender .. ' requested full sync')
+        if IsRaidLeader() then TWA.BroadcastSync() end
     end
 
     if string.find(t, 'FullSync=', 1, true) and sender ~= me then
         local sEx = string.split(t, '=')
         if sEx[2] == 'start' then
+            twadebug('full sync incoming, start')
             TWA.data = {}
         elseif sEx[2] == 'end' then
+            twadebug('full sync incoming, end')
             TWA.PopulateTWA()
         else
             if sEx[2] and sEx[3] and sEx[4] and sEx[5] and sEx[6] and sEx[7] and sEx[8] then
