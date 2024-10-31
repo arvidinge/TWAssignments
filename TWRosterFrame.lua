@@ -2,7 +2,6 @@
 local ROSTERFRAME_CLASSSECTION_BASE_HEIGHT = 30;
 local ROSTERFRAME_CLASSSECTION_ENTRY_HEIGHT = 15;
 local ROSTERFRAME_CLASSSECTION_EXPANDMARGIN = 6;
-local ROSTERFRAME_CONTAINER_INEXPLICABLEOFFSET = 57;
 local SORTED_CLASS_NAMES = { 'druid', 'hunter', 'mage', 'paladin', 'priest', 'rogue', 'shaman', 'warlock', 'warrior' }
 
 local function strCapitalize(str)
@@ -411,8 +410,8 @@ local function CalcTopOfClassSection(class)
 end
 
 local function ResizeListAfter_aux(class)
-  ClassSections[class].frame:SetPoint("Top", RosterFrameContainer, "Top", ROSTERFRAME_CONTAINER_INEXPLICABLEOFFSET / 2,
-    CalcTopOfClassSection(class));
+  ClassSections[class].frame:SetPoint("TopLeft", RosterFrameContainer, "TopLeft", 0, CalcTopOfClassSection(class));
+  
   if class == SORTED_CLASS_NAMES[9] then return end
   for i, name in ipairs(SORTED_CLASS_NAMES) do
     if name == class then
@@ -466,19 +465,19 @@ function TWA_BuildRosterFrame()
   RosterFrameScroll:EnableMouse(true)
 
   RosterFrameContainer = CreateFrame("Frame", "TWA_RosterManagerScrollFrameChild", RosterFrameScroll)
-  RosterFrameContainer:SetWidth(RosterFrameScroll:GetWidth())
+  RosterFrameContainer:SetPoint("Top", RosterFrameScroll, "Top", 0, 0)
+  RosterFrameContainer:SetWidth(RosterFrameScroll:GetWidth() * (1/UIParent:GetScale())) -- fuck you wow xml
+  
   RosterFrameContainer:SetScript("OnSizeChanged", function()
     RosterFrameScroll:SetScrollChild(RosterFrameContainer);
   end)
   RosterFrameScroll:SetScrollChild(RosterFrameContainer);
 
-  RosterFrameContainer:SetPoint("Top", RosterFrameBox, "Top", ROSTERFRAME_CONTAINER_INEXPLICABLEOFFSET / 2, 0)
-
   local i = 1;
   for _, class in ipairs(SORTED_CLASS_NAMES) do
     local classSection = TWARoster_BuildClassSection(RosterFrameContainer, class);
     ClassSections[class] = classSection;
-    classSection.frame:SetPoint("Top", RosterFrameContainer, "Top", 0, -ROSTERFRAME_CLASSSECTION_BASE_HEIGHT * i)
+    classSection.frame:SetPoint("TopLeft", RosterFrameContainer, "TopLeft", 0, -ROSTERFRAME_CLASSSECTION_BASE_HEIGHT * i)
     classSection.frame:SetScript("OnSizeChanged", resizeCallbacks[class])
   end
 
@@ -498,9 +497,10 @@ function TWARoster_BuildClassSection(container, class)
     insets = { left = 4, right = 3, top = 4, bottom = 3 }
   }
   local classSectionFrame = CreateFrame("Frame", baseName, container)
-  classSectionFrame:SetPoint("Top", container, "Top", 0, 0)
+  classSectionFrame:SetPoint("TopLeft", container, "TopLeft", 0, 0)
+  -- classSectionFrame:SetPoint("TopRight", container, "TopRight", 0, 0)
   classSectionFrame:SetHeight(ROSTERFRAME_CLASSSECTION_BASE_HEIGHT);
-  classSectionFrame:SetWidth(container:GetWidth() + ROSTERFRAME_CONTAINER_INEXPLICABLEOFFSET)
+  classSectionFrame:SetWidth(container:GetWidth())
   classSectionFrame:SetBackdrop(backdrop);
   classSectionFrame:SetBackdropColor(1, 1, 1, 0.05)
 
