@@ -1,4 +1,8 @@
 leader and assistants all share roster while in raid
   - what to do on duplicate name but different class? just add both entries in first version
+  - remove foreign roster entries when assistants leave group
+  - remove all foreign roster entries when you leave group
+  - broadcast add/remove single entries when you changes your roster
+  - broadcast roster when you are promoted 
 
 debounce full syncs for like 5 seconds (to reduce traffic while doing a lot of invites)
