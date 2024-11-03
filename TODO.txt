@@ -1,3 +1,2 @@
-if leader is offline, block addon actions (also with GUI overlay saying leader offline)
-broadcast sync on convert to raid
-request sync when joining raid
+leader and assistants all share roster while in raid
+  - what to do on duplicate name but different class? just add both entries in first version

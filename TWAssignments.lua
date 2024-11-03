@@ -475,7 +475,6 @@ function TWA.BroadcastSync()
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=end", "RAID")
 end
 
-
 ---@type TWAGroupState
 TWA._playerGroupState = nil
 TWA._playerGroupStateInitialized = false
@@ -489,6 +488,62 @@ TWA.InitializeGroupState = function ()
     end
     twadebug('  InitializeGroupState: TWA._playerGroupState is '..TWA._playerGroupState)
     twadebug('  InitializeGroupState: IsRaidLeader() is '..IsRaidLeader())
+end
+
+---Updates the player's group state, and runs appropriate side effects on changes (for example, request sync if logging in while in raid)
+function TWA.PlayerGroupStateUpdate()
+    ---@param newState TWAGroupState
+    local function setGroupState(newState)
+        local oldState = TWA._playerGroupState or 'NIL';
+        if oldState ~= newState then 
+            twadebug('state changed from '..oldState..' to '..newState) 
+        end
+
+        TWA._playerGroupState = newState
+    end
+
+
+    if not TWA._playerGroupStateInitialized then
+        twadebug('player group state not initialized, ignored update')
+        return
+    end
+
+    if TWA._playerGroupState == nil then
+        twadebug('i just logged in')
+        -- reloaded ui or logged in
+        setGroupState('alone')
+
+        if TWA.InParty() then
+            -- logged in while in party
+            setGroupState('party')
+        else
+            twadebug('not in party')
+        end
+        if TWA.InRaid() then
+            setGroupState('raid')
+            -- logged in while in raid group
+            if not IsRaidLeader() then TWA.RequestSync() end
+        else
+            twadebug('not in raid')
+        end
+
+    elseif TWA._playerGroupState == 'alone' and TWA.InParty() then
+        -- joined a group
+        setGroupState('party')
+
+        if TWA.InRaid() then
+            -- joined a raid
+            setGroupState('raid')
+            TWA.RequestSync()
+        end
+    elseif (TWA._playerGroupState == 'party' or TWA._playerGroupState == 'raid') and not TWA.InParty() then
+        -- left the group
+        setGroupState('alone')
+    elseif TWA._playerGroupState == 'party' and TWA.InRaid() then
+        -- party was converted to raid
+        setGroupState('raid')
+        if IsRaidLeader() then TWA.BroadcastSync() end
+    end
 end
 
 ---@type table<integer, TWATimeoutCallback>
@@ -583,60 +638,6 @@ function TWA.clearTimeout(id)
     end
 end
 
----Updates the player's group state, and runs appropriate side effects on changes (for example, request sync if logging in while in raid)
-function TWA.PlayerGroupStateUpdate()
-    ---@param newState TWAGroupState
-    local function setGroupState(newState)
-        local oldState = TWA._playerGroupState or 'NIL';
-        if oldState ~= newState then 
-            twadebug('state changed from '..oldState..' to '..newState) 
-        end
-
-        TWA._playerGroupState = newState
-    end
-
-    if not TWA._playerGroupStateInitialized then
-        twadebug('player group state not initialized, ignored update')
-        return
-    end
-
-    if TWA._playerGroupState == nil then
-        twadebug('i just logged in')
-        -- reloaded ui or logged in
-        setGroupState('alone')
-
-        if TWA.InParty() then
-            -- logged in while in party
-            setGroupState('party')
-        else
-            twadebug('not in party')
-        end
-        if TWA.InRaid() then
-            setGroupState('raid')
-            -- logged in while in raid group
-            if not IsRaidLeader() then TWA.RequestSync() end
-        else
-            twadebug('not in raid')
-        end
-
-    elseif TWA._playerGroupState == 'alone' and TWA.InParty() then
-        -- joined a group
-        setGroupState('party')
-
-        if TWA.InRaid() then
-            -- joined a raid
-            setGroupState('raid')
-            TWA.RequestSync()
-        end
-    elseif (TWA._playerGroupState == 'party' or TWA._playerGroupState == 'raid') and not TWA.InParty() then
-        -- left the group
-        setGroupState('alone')
-    elseif TWA._playerGroupState == 'party' and TWA.InRaid() then
-        -- party was converted to raid
-        setGroupState('raid')
-        if IsRaidLeader() then TWA.BroadcastSync() end
-    end
-end
 
 TWA:SetScript("OnEvent", function()
     if not event then return end
