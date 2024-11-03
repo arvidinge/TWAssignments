@@ -218,7 +218,7 @@ end
 
 ---@param self TWAClassSection
 function TWAClassSection:Update()
-  TWA.fillRaidData()
+  TWA.updateRaidData()
   TWA.PopulateTWA()
   TWA.persistRoster()
 

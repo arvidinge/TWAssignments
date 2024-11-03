@@ -33,7 +33,6 @@ TWAClassSection = {}
 ---@field editBox EditBox
 TWAAddPlayers = {}
 
-
 ---@class TWAWowColor
 ---@field r number
 ---@field g number
@@ -41,3 +40,10 @@ TWAAddPlayers = {}
 ---@field a number|nil
 ---@field c string Color code for use in fonstrings, example <code>|cffff7d0a</code>
 TWAWowColor = {}
+
+
+---@class TWATimeoutCallback
+---@field startTime number
+---@field delay number
+---@field callback function
+TWATimeoutCallback = {}

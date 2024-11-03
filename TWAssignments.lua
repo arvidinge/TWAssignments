@@ -1,8 +1,7 @@
 local addonVer = "1.0.0.0" --don't use letters or numbers > 10
 local me = UnitName('player')
-local LOGIN_GRACE_PERIOD = 5.0 -- seconds
-
-local addonLoadedTimestamp = 0;
+local LOGIN_GRACE_PERIOD = 2.0 -- seconds
+local CHECK_TIMEOUTS_EACH_N_FRAMES = 10
 
 TWA = CreateFrame("Frame")
 
@@ -39,6 +38,11 @@ TWA:RegisterEvent("CHAT_MSG_WHISPER")
 TWA:RegisterEvent("PARTY_MEMBERS_CHANGED")
 
 TWA.data = {}
+---@type boolean|nil
+TWA._leaderOnline = nil
+TWA.IsLeaderOnline = function()
+
+end
 
 ---All conditions must be satisfied to make changes:
 ---1. The player is in a raid group
@@ -54,7 +58,10 @@ function TWA_CanMakeChanges()
         twaprint("You need to be a raid leader or assistant to do that.")
         return false
     end
-    -- todo: check if leader offline
+    if not TWA._leaderOnline then
+        twaprint("The leader of the group must be online to make any changes.")
+        return false
+    end
     return true
 end
 
@@ -304,7 +311,6 @@ local twa_templates = {
 }
 
 TWA.loadedTemplate = ''
-
 function TWA.loadTemplate(template, load)
     if load ~= nil and load == true then
         TWA.data = {}
@@ -472,62 +478,91 @@ function TWA.BroadcastSync()
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=end", "RAID")
 end
 
+
 ---@type TWAGroupState
-TWA.playerGroupState = nil
-local function setGroupState(newState)
-    local oldState = TWA.playerGroupState or 'NIL';
-    if oldState ~= newState then 
-        twadebug('state changed from '..oldState..' to '..newState) 
-    end
-    TWA.playerGroupState = newState
+TWA._playerGroupState = nil
+TWA._playerGroupStateInitialized = false
+TWA.InitializeGroupState = function ()
+    if TWA._playerGroupStateInitialized then return end
+    TWA._playerGroupStateInitialized = true;
+    TWA.PlayerGroupStateUpdate()
 end
 
----@type table<string, Frame>
-local timeOuts = {}
+---@type table<integer, TWATimeoutCallback>
+local callbacks = {}
 
-function TWA.newTimeoutName()
-    if table.getn(timeOuts) == 0 then return tostring(1) end
-    local i = 1;
-    local keys = {}
-    for key, _ in pairs(timeOuts) do
-        table.insert(keys, key)
-    end
-    table.sort(keys)
-    while (i<100) do
-        if keys[i] ~= tostring(i) then return tostring(i) end
-        i = i+1
-    end
-    return nil
+---@return Frame
+local function getTimeoutFrame() 
+    local frameName = "TWA_TimeOutFrame"
+    return getglobal(frameName) or CreateFrame("Frame", frameName)
 end
 
-function TWA.setTimeout(callback, delay)
-    local id = TWA.newTimeoutName()
-    if not id then twaerror('too many timeouts') return end
-    twadebug('timeout name is '..id)
-    local frameName = "TWA_TimeOutFrame"..id
-    local waitFrame = getglobal(frameName) or CreateFrame("Frame", frameName)
-    timeOuts[id] = waitFrame
-    local startTime = GetTime()
-    
-    -- Set the OnUpdate handler
-    waitFrame:SetScript("OnUpdate", function()
-        if GetTime() - startTime >= delay then
-            twadebug('fire callback id '..id)
-            callback()
-            waitFrame:SetScript("OnUpdate", nil)
-            timeOuts[id] = nil
+local frameCounter = 0
+local function mod(a, b)
+    return a - math.floor(a / b) * b
+end
+local function checkCallbacks()
+    frameCounter = frameCounter + 1
+    if mod(frameCounter, CHECK_TIMEOUTS_EACH_N_FRAMES) ~= 0 then return end
+
+    local curTime = GetTime()
+    local invokedCallbacks = {}
+
+    for i, tc in ipairs(callbacks) do
+        if tc.startTime + tc.delay <= curTime then
+            tc.callback()
+            table.insert(invokedCallbacks, i)
         end
-    end)
+    end
+
+    local i = table.getn(invokedCallbacks)
+    while i>0 do
+        table.remove(callbacks, invokedCallbacks[i]);
+        i = i - 1
+    end
+
+    if table.getn(callbacks) == 0 then
+        getTimeoutFrame():SetScript("OnUpdate", nil);
+    end
+end
+
+---Set a callback function to be called after a timeout.
+---@param callback function 
+---@param delay number Unit is seconds, accepts decimals
+function TWA.setTimeout(callback, delay)
+    local waitFrame = getTimeoutFrame()
+
+    ---@type TWATWATimeoutCallback
+    local tc = {
+        callback = callback,
+        delay = delay,
+        startTime = GetTime()
+    }
+    table.insert(callbacks, tc)
+
+    waitFrame:SetScript("OnUpdate", checkCallbacks)
 end
 
 ---Updates the player's group state, and runs appropriate side effects on changes (for example, request sync if logging in while in raid)
 function TWA.PlayerGroupStateUpdate()
-    if TWA.playerGroupState == nil or addonLoadedTimestamp + LOGIN_GRACE_PERIOD < GetTime() then
+    local function setGroupState(newState)
+        local oldState = TWA._playerGroupState or 'NIL';
+        if oldState ~= newState then 
+            twadebug('state changed from '..oldState..' to '..newState) 
+        end
+        TWA._playerGroupState = newState
+    end
+
+    if not TWA._playerGroupStateInitialized then
+        twadebug('player group state not initialized, ignored update')
+        return
+    end
+
+    if TWA._playerGroupState == nil then
         twadebug('i just logged in')
         -- reloaded ui or logged in
         setGroupState('alone')
 
-        -- caution: these lines only work for reloading ui, since when you log in, you are not actually considered as in the party until half a second or so later.
         if TWA.InParty() then
             -- logged in while in party
             setGroupState('party')
@@ -542,7 +577,7 @@ function TWA.PlayerGroupStateUpdate()
             twadebug('not in raid')
         end
 
-    elseif TWA.playerGroupState == 'alone' and TWA.InParty() then
+    elseif TWA._playerGroupState == 'alone' and TWA.InParty() then
         -- joined a group
         setGroupState('party')
 
@@ -551,10 +586,10 @@ function TWA.PlayerGroupStateUpdate()
             setGroupState('raid')
             TWA.RequestSync()
         end
-    elseif (TWA.playerGroupState == 'party' or TWA.playerGroupState == 'raid') and not TWA.InParty() then
+    elseif (TWA._playerGroupState == 'party' or TWA._playerGroupState == 'raid') and not TWA.InParty() then
         -- left the group
         setGroupState('alone')
-    elseif TWA.playerGroupState == 'party' and TWA.InRaid() then
+    elseif TWA._playerGroupState == 'party' and TWA.InRaid() then
         -- party was converted to raid
         setGroupState('raid')
         if IsRaidLeader() then TWA.BroadcastSync() end
@@ -566,13 +601,8 @@ TWA:SetScript("OnEvent", function()
 
     if event == "ADDON_LOADED" and arg1 == "TWAssignments" then
         twaprint("ADDON_LOADED")
-        addonLoadedTimestamp = GetTime()
-        twaprint('time is '..addonLoadedTimestamp)
+        TWA.setTimeout(function() twadebug('initializing group state') TWA.InitializeGroupState() end, LOGIN_GRACE_PERIOD)
 
-        twaprint('setting timeOuts')
-        TWA.setTimeout(function() twaprint('its 5 sec later now') end, 5)
-        TWA.setTimeout(function() twaprint('its 4 sec later now') end, 5)
-        TWA.setTimeout(function() twaprint('its 7 sec later now') end, 5)
 
         if not TWA_PRESETS then
             TWA_PRESETS = {}
@@ -590,7 +620,7 @@ TWA:SetScript("OnEvent", function()
         end
 
         TWA.PlayerGroupStateUpdate()
-        TWA.fillRaidData()
+        TWA.updateRaidData()
         TWA.PopulateTWA()
         tinsert(UISpecialFrames, "TWA_Main") --makes window close with Esc key
         tinsert(UISpecialFrames, "TWA_RosterManager")
@@ -599,7 +629,7 @@ TWA:SetScript("OnEvent", function()
     if event == "RAID_ROSTER_UPDATE" then
         twadebug("RAID_ROSTER_UPDATE")
         TWA.PlayerGroupStateUpdate()
-        TWA.fillRaidData()
+        TWA.updateRaidData()
         TWA.PopulateTWA()
     end
 
@@ -689,7 +719,18 @@ function TWA.persistRoster()
     TWA_ROSTER = TWA.roster
 end
 
-function TWA.fillRaidData()
+-- function TWA.OnLeaderOnlineUpdate(prev, new)
+--     if prev == new then return end
+--     if prev == false and new == true then
+--         -- leader just came online
+--         twadebug('leader just came online')
+--     elseif prev == true and new == false then
+--         -- leader just disconnected
+--         twadebug('leader just disconnected')
+--     end
+-- end
+
+function TWA.updateRaidData()
     twadebug('fill raid data')
     TWA.raid = {
         ['warrior'] = {},
@@ -705,11 +746,20 @@ function TWA.fillRaidData()
     -- current raid members
     for i = 0, GetNumRaidMembers() do
         if GetRaidRosterInfo(i) then
-            local name, _, _, _, _, _, z = GetRaidRosterInfo(i);
+            local name, rank, _, _, _, _, z = GetRaidRosterInfo(i);
             local _, unitClass = UnitClass('raid' .. i)
             unitClass = string.lower(unitClass)
             table.insert(TWA.raid[unitClass], name)
             table.sort(TWA.raid[unitClass])
+            if rank == 2 then
+                -- local prevState = TWA._leaderOnline
+                if z == "Offline" then
+                    TWA._leaderOnline = false
+                else
+                    TWA._leaderOnline = true
+                end
+                -- TWA.OnLeaderOnlineUpdate(prevState, TWA._leaderOnline)
+            end
         end
     end
     -- roster list (see TWA.roster)

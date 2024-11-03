@@ -1,0 +1,3 @@
+if leader is offline, block addon actions (also with GUI overlay saying leader offline)
+broadcast sync on convert to raid
+request sync when joining raid
