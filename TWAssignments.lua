@@ -2,6 +2,7 @@ local addonVer = "1.0.0.0" --don't use letters or numbers > 10
 local me = UnitName('player')
 local LOGIN_GRACE_PERIOD = 2.0 -- seconds
 local CHECK_TIMEOUTS_EACH_N_FRAMES = 10
+local LEADER_CANARY_PERIOD = 3.0
 
 TWA = CreateFrame("Frame")
 
@@ -40,9 +41,6 @@ TWA:RegisterEvent("PARTY_MEMBERS_CHANGED")
 TWA.data = {}
 ---@type boolean|nil
 TWA._leaderOnline = nil
-TWA.IsLeaderOnline = function()
-
-end
 
 ---All conditions must be satisfied to make changes:
 ---1. The player is in a raid group
@@ -479,6 +477,65 @@ function TWA.BroadcastSync()
 end
 
 
+TWA._leaderCanaryEnabled = false;
+---@type string|nil
+TWA._leaderCanaryTimeoutId = nil;
+
+TWA.LeaderCanaryEnable = function()
+    if not IsRaidLeader() then return end
+    TWA._leaderCanaryEnabled = true;
+
+    TWA.CanaryPeep()
+end
+
+TWA.LeaderCanaryDisable = function()
+    TWA.clearTimeout(TWA._leaderCanaryTimeoutId)
+    TWA._leaderCanaryEnabled = false;
+end
+
+TWA.CanaryPeep = function ()
+    if not TWA._leaderCanaryEnabled or not IsRaidLeader() then return end
+
+    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "Peep="..LEADER_CANARY_PERIOD, "RAID")
+    TWA._leaderCanaryTimeoutId = TWA.setTimeout(TWA.CanaryPeep, LEADER_CANARY_PERIOD);
+end
+
+---@type number|nil Last timestamp (GetTime()) that we heard the leader canary.
+TWA._lastCanaryPeepTime = nil
+TWA._canaryListenEnabled = false
+---@type string|nil
+TWA._peepTimeoutId = nil
+
+function TWA.CanaryListenEnable()
+    if TWA._canaryListenEnabled then return end
+    TWA._canaryListenEnabled = true
+    TWA._lastCanaryPeepTime = GetTime()
+    TWA.PeepTimeout()
+    twadebug('listening to canary')
+end
+
+TWA.CanaryListenDisable = function()
+    if not TWA._canaryListenEnabled then return end
+    TWA.clearTimeout(TWA._peepTimeoutId)
+    TWA._canaryListenEnabled = false
+    twadebug('stopped listening to canary')
+end
+
+TWA.HandlePeep = function()
+    TWA._lastCanaryPeepTime = GetTime()
+end
+
+TWA.PeepTimeout = function()
+    local timeNow = GetTime()
+    if TWA._lastCanaryPeepTime + (LEADER_CANARY_PERIOD * 3) <= timeNow then
+        twadebug('|cffff0000canary stopped!|r')
+
+    end
+    TWA._peepTimeoutId = TWA.setTimeout(TWA.PeepTimeout, LEADER_CANARY_PERIOD)
+end
+
+
+
 ---@type TWAGroupState
 TWA._playerGroupState = nil
 TWA._playerGroupStateInitialized = false
@@ -486,6 +543,12 @@ TWA.InitializeGroupState = function ()
     if TWA._playerGroupStateInitialized then return end
     TWA._playerGroupStateInitialized = true;
     TWA.PlayerGroupStateUpdate()
+
+    twadebug('  InitializeGroupState: TWA._playerGroupState is '..TWA._playerGroupState)
+    twadebug('  InitializeGroupState: IsRaidLeader() is '..IsRaidLeader())
+    if TWA._playerGroupState == 'raid' and IsRaidLeader() then
+        TWA.LeaderCanaryEnable()
+    end
 end
 
 ---@type table<integer, TWATimeoutCallback>
@@ -526,14 +589,27 @@ local function checkCallbacks()
     end
 end
 
+-- https://gist.github.com/jrus/3197011
+local random = math.random
+local function uuid()
+    local template ='xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+    return string.gsub(template, '[xy]', function (c)
+        local v = (c == 'x') and random(0, 15) or random(8, 11)
+        return string.format('%x', v)
+    end)
+end
+
 ---Set a callback function to be called after a timeout.
----@param callback function 
----@param delay number Unit is seconds, accepts decimals
+---@param callback function The function to call after the delay
+---@param delay number Number of seconds to delay, accepts decimals
+---@return string id The id of the timeout
 function TWA.setTimeout(callback, delay)
     local waitFrame = getTimeoutFrame()
+    local timeoutId = uuid()
 
     ---@type TWATWATimeoutCallback
     local tc = {
+        id = timeoutId,
         callback = callback,
         delay = delay,
         startTime = GetTime()
@@ -541,15 +617,48 @@ function TWA.setTimeout(callback, delay)
     table.insert(callbacks, tc)
 
     waitFrame:SetScript("OnUpdate", checkCallbacks)
+    return timeoutId;
+end
+
+---Cancel an already queued timeout
+---@param id string The id of the timeout
+function TWA.clearTimeout(id)
+    if id == nil then return end
+    ---@type integer|nil
+    local timeoutToDelete = nil
+
+    for i, tc in ipairs(callbacks) do
+        if timeoutToDelete ~= nil then break end
+        if tc.id == id then
+            timeoutToDelete = i
+        end
+    end
+
+    if timeoutToDelete == nil then return end
+
+    table.remove(callbacks, timeoutToDelete);
+
+    if table.getn(callbacks) == 0 then
+        getTimeoutFrame():SetScript("OnUpdate", nil);
+    end
 end
 
 ---Updates the player's group state, and runs appropriate side effects on changes (for example, request sync if logging in while in raid)
 function TWA.PlayerGroupStateUpdate()
+    ---@param newState TWAGroupState
     local function setGroupState(newState)
         local oldState = TWA._playerGroupState or 'NIL';
         if oldState ~= newState then 
             twadebug('state changed from '..oldState..' to '..newState) 
         end
+        
+        if newState == 'raid' then
+            TWA.CanaryListenDisable()
+            TWA.CanaryListenEnable()
+        else
+            TWA.CanaryListenDisable()
+        end
+
         TWA._playerGroupState = newState
     end
 
@@ -603,7 +712,6 @@ TWA:SetScript("OnEvent", function()
         twaprint("ADDON_LOADED")
         TWA.setTimeout(function() twadebug('initializing group state') TWA.InitializeGroupState() end, LOGIN_GRACE_PERIOD)
 
-
         if not TWA_PRESETS then
             TWA_PRESETS = {}
         end
@@ -628,9 +736,15 @@ TWA:SetScript("OnEvent", function()
 
     if event == "RAID_ROSTER_UPDATE" then
         twadebug("RAID_ROSTER_UPDATE")
+
         TWA.PlayerGroupStateUpdate()
         TWA.updateRaidData()
         TWA.PopulateTWA()
+
+        TWA.LeaderCanaryDisable()
+        if (IsRaidLeader()) then
+            TWA.LeaderCanaryEnable()
+        end
     end
 
     if event == "PARTY_MEMBERS_CHANGED" then
@@ -794,6 +908,10 @@ function TWA.isPlayerOffline(name)
 end
 
 function TWA.handleSync(_, t, _, sender)
+    if string.find(t, 'Peep=', 1, true) then
+        TWA.HandlePeep()
+    end
+
     if string.find(t, 'LoadTemplate=', 1, true) then
         local tempEx = string.split(t, '=')
         if not tempEx[2] then
@@ -844,6 +962,7 @@ function TWA.handleSync(_, t, _, sender)
         TWA.RemRow(tonumber(rowEx[2]), sender)
         return true
     end
+
     if string.find(t, 'ChangeCell=', 1, true) then
         local changeEx = string.split(t, '=')
         if not changeEx[2] or not changeEx[3] or not changeEx[4] then

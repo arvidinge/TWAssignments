@@ -43,6 +43,7 @@ TWAWowColor = {}
 
 
 ---@class TWATimeoutCallback
+---@field id string
 ---@field startTime number
 ---@field delay number
 ---@field callback function
