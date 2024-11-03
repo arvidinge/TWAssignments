@@ -638,6 +638,10 @@ function TWA.clearTimeout(id)
     end
 end
 
+---When a player joins a raid group, both the PARTY_MEMBERS_CHANGED and RAID_ROSTER_UPDATE events are fired, in that order.
+---I want to treat them as the same even IF they happen within half a second of each other. That is the purpose of this timeout.
+---@type string|nil
+TWA.partyAndRaidCombinedEventTimeoutId = nil
 
 TWA:SetScript("OnEvent", function()
     if not event then return end
@@ -670,7 +674,10 @@ TWA:SetScript("OnEvent", function()
 
     if event == "RAID_ROSTER_UPDATE" then
         twadebug("RAID_ROSTER_UPDATE")
-
+        if TWA.partyAndRaidCombinedEventTimeoutId ~= nil then
+            TWA.clearTimeout(TWA.partyAndRaidCombinedEventTimeoutId)
+            TWA.partyAndRaidCombinedEventTimeoutId = nil
+        end
         TWA.PlayerGroupStateUpdate()
         TWA.updateRaidData()
         TWA.PopulateTWA()
@@ -678,7 +685,7 @@ TWA:SetScript("OnEvent", function()
 
     if event == "PARTY_MEMBERS_CHANGED" then
         twadebug("PARTY_MEMBERS_CHANGED")
-        TWA.PlayerGroupStateUpdate()
+        TWA.partyAndRaidCombinedEventTimeoutId = TWA.setTimeout(TWA.PlayerGroupStateUpdate, 0.5)
     end
 
     if event == 'CHAT_MSG_ADDON' and arg1 == "TWA" then
