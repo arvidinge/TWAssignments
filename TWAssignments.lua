@@ -2,6 +2,7 @@ local addonVer = "1.0.0.0" --don't use letters or numbers > 10
 local me = UnitName('player')
 local LOGIN_GRACE_PERIOD = 2.0 -- seconds
 local CHECK_TIMEOUTS_EACH_N_FRAMES = 10
+local DOUBLE_EVENT_TIMEOUT = 0.5
 
 TWA = CreateFrame("Frame")
 
@@ -685,7 +686,7 @@ TWA:SetScript("OnEvent", function()
 
     if event == "PARTY_MEMBERS_CHANGED" then
         twadebug("PARTY_MEMBERS_CHANGED")
-        TWA.partyAndRaidCombinedEventTimeoutId = TWA.setTimeout(TWA.PlayerGroupStateUpdate, 0.5)
+        TWA.partyAndRaidCombinedEventTimeoutId = TWA.setTimeout(TWA.PlayerGroupStateUpdate, DOUBLE_EVENT_TIMEOUT)
     end
 
     if event == 'CHAT_MSG_ADDON' and arg1 == "TWA" then
