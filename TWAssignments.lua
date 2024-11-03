@@ -2,7 +2,6 @@ local addonVer = "1.0.0.0" --don't use letters or numbers > 10
 local me = UnitName('player')
 local LOGIN_GRACE_PERIOD = 2.0 -- seconds
 local CHECK_TIMEOUTS_EACH_N_FRAMES = 10
-local LEADER_CANARY_PERIOD = 3.0
 
 TWA = CreateFrame("Frame")
 
@@ -477,65 +476,6 @@ function TWA.BroadcastSync()
 end
 
 
-TWA._leaderCanaryEnabled = false;
----@type string|nil
-TWA._leaderCanaryTimeoutId = nil;
-
-TWA.LeaderCanaryEnable = function()
-    if not IsRaidLeader() then return end
-    TWA._leaderCanaryEnabled = true;
-
-    TWA.CanaryPeep()
-end
-
-TWA.LeaderCanaryDisable = function()
-    TWA.clearTimeout(TWA._leaderCanaryTimeoutId)
-    TWA._leaderCanaryEnabled = false;
-end
-
-TWA.CanaryPeep = function ()
-    if not TWA._leaderCanaryEnabled or not IsRaidLeader() then return end
-
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "Peep="..LEADER_CANARY_PERIOD, "RAID")
-    TWA._leaderCanaryTimeoutId = TWA.setTimeout(TWA.CanaryPeep, LEADER_CANARY_PERIOD);
-end
-
----@type number|nil Last timestamp (GetTime()) that we heard the leader canary.
-TWA._lastCanaryPeepTime = nil
-TWA._canaryListenEnabled = false
----@type string|nil
-TWA._peepTimeoutId = nil
-
-function TWA.CanaryListenEnable()
-    if TWA._canaryListenEnabled then return end
-    TWA._canaryListenEnabled = true
-    TWA._lastCanaryPeepTime = GetTime()
-    TWA.PeepTimeout()
-    twadebug('listening to canary')
-end
-
-TWA.CanaryListenDisable = function()
-    if not TWA._canaryListenEnabled then return end
-    TWA.clearTimeout(TWA._peepTimeoutId)
-    TWA._canaryListenEnabled = false
-    twadebug('stopped listening to canary')
-end
-
-TWA.HandlePeep = function()
-    TWA._lastCanaryPeepTime = GetTime()
-end
-
-TWA.PeepTimeout = function()
-    local timeNow = GetTime()
-    if TWA._lastCanaryPeepTime + (LEADER_CANARY_PERIOD * 3) <= timeNow then
-        twadebug('|cffff0000canary stopped!|r')
-
-    end
-    TWA._peepTimeoutId = TWA.setTimeout(TWA.PeepTimeout, LEADER_CANARY_PERIOD)
-end
-
-
-
 ---@type TWAGroupState
 TWA._playerGroupState = nil
 TWA._playerGroupStateInitialized = false
@@ -544,11 +484,11 @@ TWA.InitializeGroupState = function ()
     TWA._playerGroupStateInitialized = true;
     TWA.PlayerGroupStateUpdate()
 
+    if TWA._playerGroupState == 'raid' and IsRaidLeader() then
+        TWA.BroadcastSync() -- overwrite any changes made by assistants while you were offline
+    end
     twadebug('  InitializeGroupState: TWA._playerGroupState is '..TWA._playerGroupState)
     twadebug('  InitializeGroupState: IsRaidLeader() is '..IsRaidLeader())
-    if TWA._playerGroupState == 'raid' and IsRaidLeader() then
-        TWA.LeaderCanaryEnable()
-    end
 end
 
 ---@type table<integer, TWATimeoutCallback>
@@ -651,13 +591,6 @@ function TWA.PlayerGroupStateUpdate()
         if oldState ~= newState then 
             twadebug('state changed from '..oldState..' to '..newState) 
         end
-        
-        if newState == 'raid' then
-            TWA.CanaryListenDisable()
-            TWA.CanaryListenEnable()
-        else
-            TWA.CanaryListenDisable()
-        end
 
         TWA._playerGroupState = newState
     end
@@ -740,11 +673,6 @@ TWA:SetScript("OnEvent", function()
         TWA.PlayerGroupStateUpdate()
         TWA.updateRaidData()
         TWA.PopulateTWA()
-
-        TWA.LeaderCanaryDisable()
-        if (IsRaidLeader()) then
-            TWA.LeaderCanaryEnable()
-        end
     end
 
     if event == "PARTY_MEMBERS_CHANGED" then
@@ -833,16 +761,19 @@ function TWA.persistRoster()
     TWA_ROSTER = TWA.roster
 end
 
--- function TWA.OnLeaderOnlineUpdate(prev, new)
---     if prev == new then return end
---     if prev == false and new == true then
---         -- leader just came online
---         twadebug('leader just came online')
---     elseif prev == true and new == false then
---         -- leader just disconnected
---         twadebug('leader just disconnected')
---     end
--- end
+
+---@param prev boolean
+---@param new boolean
+function TWA.OnLeaderOnlineUpdate(prev, new)
+    if prev == new then return end
+    if prev == false and new == true then
+        TWA._leaderOnline = true
+        twadebug('leader just came online')
+    elseif prev == true and new == false then
+        TWA._leaderOnline = false
+        twadebug('leader just disconnected')
+    end
+end
 
 function TWA.updateRaidData()
     twadebug('fill raid data')
@@ -866,13 +797,13 @@ function TWA.updateRaidData()
             table.insert(TWA.raid[unitClass], name)
             table.sort(TWA.raid[unitClass])
             if rank == 2 then
-                -- local prevState = TWA._leaderOnline
+                local prevState = TWA._leaderOnline
                 if z == "Offline" then
                     TWA._leaderOnline = false
                 else
                     TWA._leaderOnline = true
                 end
-                -- TWA.OnLeaderOnlineUpdate(prevState, TWA._leaderOnline)
+                TWA.OnLeaderOnlineUpdate(prevState, TWA._leaderOnline)
             end
         end
     end
