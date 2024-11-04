@@ -68,6 +68,7 @@ end
 function TWAAddPlayers:GetClass()
   return self._currentClass
 end
+
 -- TWAAddPlayers End #########################
 
 
@@ -150,17 +151,13 @@ function TWAClassSection:_buildNameFrame(name, class)
   removeButton:SetHeight(20);
   removeButton:SetWidth(20);
   removeButton:SetScript("OnClick", function()
-    CloseDropDownMenus()
+    if CloseDropDownMenus then CloseDropDownMenus() end
     local classRoster = TWA.roster[self.class];
-    local indexToDelete = nil;
-    for i, curName in ipairs(classRoster) do
-      if curName == name then
-        indexToDelete = i;
-        break;
-      end
+    local indexToDelete = TWA.tablePosOf(classRoster, name)
+    if indexToDelete ~= nil then
+      table.remove(classRoster, indexToDelete);
+      TWA.BroadcastRosterEntryDeleted(self.class, name)
     end
-    table.remove(classRoster, indexToDelete);
-    
     self:Update();
   end)
 
@@ -234,6 +231,7 @@ function TWAClassSection:Update()
     self:Expand() -- this builds missing frames
   end
 end
+
 -- TWAClassSection end #########################
 
 ---@type table<TWAWowClass, TWAClassSection|nil>
@@ -327,6 +325,7 @@ end
 function TWA_AddPlayersDoneClick()
   local eb = addPlayers.editBox;
   local inputstr = eb:GetText();
+  local class = addPlayers:GetClass()
 
   local newnames = parseNames(inputstr)
   local invalidNames = {}
@@ -342,27 +341,32 @@ function TWA_AddPlayersDoneClick()
     for i, name in pairs(invalidNames) do
       errmsg = errmsg .. name .. '\n'
     end
-    message(errmsg)
+    twaprint(errmsg)
     return
   end
 
   -- Insert into roster if they don't already exist
-  local classRoster = TWA.roster[addPlayers:GetClass()];
+  local classRoster = TWA.roster[class];
   for _, newname in ipairs(newnames) do
     local nameFound = false;
-    for _, classRoster in pairs(TWA.roster) do
-      for _, existingName in pairs(classRoster) do
+    for _, currentClassNames in pairs(TWA.roster) do
+      for _, existingName in pairs(currentClassNames) do
         if newname == existingName then nameFound = true end
       end
     end
 
     if not nameFound then
-      -- twadebug('name not taken, inserted "' .. newname .. '"')
       table.insert(classRoster, strCapitalize(newname));
     else
       -- twadebug('name taken')
     end
   end
+
+  ---@type TWARoster
+  local newRosterEntries = {
+    [class] = newnames
+  }
+  TWA.BroadcastRoster(newRosterEntries)
 
   addPlayers:SetText('')
   addPlayers.frame:Hide()
@@ -411,7 +415,7 @@ end
 
 local function ResizeListAfter_aux(class)
   ClassSections[class].frame:SetPoint("TopLeft", RosterFrameContainer, "TopLeft", 0, CalcTopOfClassSection(class));
-  
+
   if class == SORTED_CLASS_NAMES[9] then return end
   for i, name in ipairs(SORTED_CLASS_NAMES) do
     if name == class then
@@ -466,8 +470,8 @@ function TWA_BuildRosterFrame()
 
   RosterFrameContainer = CreateFrame("Frame", "TWA_RosterManagerScrollFrameChild", RosterFrameScroll)
   RosterFrameContainer:SetPoint("Top", RosterFrameScroll, "Top", 0, 0)
-  RosterFrameContainer:SetWidth(RosterFrameScroll:GetWidth() * (1/UIParent:GetScale())) -- fuck you wow xml
-  
+  RosterFrameContainer:SetWidth(RosterFrameScroll:GetWidth() * (1 / UIParent:GetScale())) -- fuck you wow xml
+
   RosterFrameContainer:SetScript("OnSizeChanged", function()
     RosterFrameScroll:SetScrollChild(RosterFrameContainer);
   end)

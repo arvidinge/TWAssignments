@@ -524,6 +524,7 @@ end
 
 ---Only call for leader, broadcast when full sync requested
 function TWA.BroadcastCompleteRoster()
+    if not TWA.InRaid() and not (IsRaidLeader() or IsRaidOfficer()) then return end
     local roster = TWA.GetCompleteRoster()
 
     ---@param class string
@@ -555,20 +556,20 @@ function TWA.BroadcastCompleteRoster()
     end
 end
 
----Call whenever the player adds a player to their roster.
+---Call to share that you've deleted a member of your roster.
 ---Only works in raid and if you are either assistant or leader. (noop otherwise)
----@param class string
+---@param class TWAWowClass
 ---@param name string
-function TWA.BroadcastNewRosterName(class, name)
-    if not IsRaidOfficer() or not IsRaidLeader() then return end
-    twadebug('nyi: BroadcastNewRosterName ' .. class .. ' ' .. name)
-    -- nyi
+function TWA.BroadcastRosterEntryDeleted(class, name)
+    if not TWA.InRaid() and not (IsRaidLeader() or IsRaidOfficer()) then return end
+    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RosterEntryDeleted=" .. class .. "=" .. name, "RAID")
 end
 
----Call whenever the player is made assistant or leader to share their complete roster.
+---Call to share your roster with other players. You can pass partial rosters when adding new names to save on bandwidth.
 ---Only works in raid and if you are either assistant or leader. (noop otherwise)
-function TWA.BroadcastMyRoster()
-    local roster = TWA.roster;
+---@param roster TWARoster
+function TWA.BroadcastRoster(roster)
+    if not TWA.InRaid() and not (IsRaidLeader() or IsRaidOfficer()) then return end
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RosterBroadcast=start", "RAID")
 
     ---@param class string
@@ -935,7 +936,7 @@ TWA._assistants = {}
 function TWA.PlayerWasPromoted(name)
     if TWA._raidStateInitialized then
         twadebug('player was promoted: ' .. name)
-        if name == me then TWA.BroadcastMyRoster() end
+        if name == me then TWA.BroadcastRoster(TWA.roster) end
     end
 end
 
@@ -997,7 +998,7 @@ function TWA.updateRaidStatus()
                 if not TWA.tableContains(TWA._assistants, name) then
                     table.insert(TWA._assistants, name)
                 end
-            else
+            else -- pleb
                 TWA.CheckIfDemoted(name)
                 if TWA._leader == name then
                     TWA._leader = nil
@@ -1172,10 +1173,11 @@ function TWA.handleSync(_, t, _, sender)
     if string.find(t, 'RosterBroadcast=', 1, true) and sender ~= me then
         local sEx = string.split(t, '=')
         if sEx[2] == 'start' then
+            -- todo: could add some handling for simultaneous incoming broadcasts:
             -- add to list of incoming broadcasts
         elseif sEx[2] == 'end' then
             -- remove from list of incoming broadcasts
-            -- if list empty, run the following stuff:
+            -- only if list of broadcasts is empty, run the following stuff:
             TWA.fillRaidData()
             TWA.PopulateTWA()
         else
@@ -1183,6 +1185,23 @@ function TWA.handleSync(_, t, _, sender)
             local names = string.split(sEx[3], ',')
             for _, name in ipairs(names) do
                 TWA.addUniqueToRoster(sender, class, name)
+            end
+        end
+    end
+
+    if string.find(t, 'RosterEntryDeleted=', 1, true) and sender ~= me then
+        local sEx = string.split(t, '=')
+        local class = sEx[2]
+        local name = sEx[3]
+
+        if TWA.otherPeoplesRosters[sender] ~= nil then
+            if TWA.otherPeoplesRosters[sender][class] ~= nil then
+                local nameIndex = TWA.tablePosOf(TWA.otherPeoplesRosters[sender][class], name)
+                if nameIndex ~= nil then
+                    table.remove(TWA.otherPeoplesRosters[sender][class], nameIndex)
+                    TWA.fillRaidData()
+                    TWA.PopulateTWA()
+                end
             end
         end
     end
@@ -1212,10 +1231,12 @@ function TWA.handleSync(_, t, _, sender)
         TWA.change(tonumber(changeEx[2]), changeEx[3], sender, changeEx[4] == '1')
         return true
     end
+
     if string.find(t, 'Reset', 1, true) then
         TWA.Reset()
         return true
     end
+
     if string.find(t, 'AddLine', 1, true) then
         TWA.AddLine()
         return true
