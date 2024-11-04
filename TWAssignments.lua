@@ -1,8 +1,10 @@
--- new features:
--- confirm on reset
--- roster
 local addonVer = "1.0.0.0" --don't use letters or numbers > 10
 local me = UnitName('player')
+
+local LOGIN_GRACE_PERIOD = 2.0   -- seconds
+local CHECK_TIMEOUTS_EACH_N_FRAMES = 10
+local DOUBLE_EVENT_TIMEOUT = 0.5 -- seconds
+local MAX_NAMES_PER_MESSAGE = 10
 
 TWA = CreateFrame("Frame")
 
@@ -36,8 +38,33 @@ TWA:RegisterEvent("ADDON_LOADED")
 TWA:RegisterEvent("RAID_ROSTER_UPDATE")
 TWA:RegisterEvent("CHAT_MSG_ADDON")
 TWA:RegisterEvent("CHAT_MSG_WHISPER")
+TWA:RegisterEvent("PARTY_MEMBERS_CHANGED")
 
 TWA.data = {}
+
+---@type boolean
+TWA._leaderOnline = false
+
+---All conditions must be satisfied to make changes:
+---1. The player is in a raid group
+---1. The player is either leader or assistant
+---1. The leader of the raid is not offline (since he is syncmaster)
+---@return boolean
+function TWA_CanMakeChanges()
+    if not TWA.InRaid() then
+        twaprint('You must be in a raid group to do that.')
+        return false
+    end
+    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
+        twaprint("You need to be a raid leader or assistant to do that.")
+        return false
+    end
+    if not TWA._leaderOnline then
+        twaprint("The leader of the group must be online to make any changes.")
+        return false
+    end
+    return true
+end
 
 local twa_templates = {
     ['trash1'] = {
@@ -285,7 +312,6 @@ local twa_templates = {
 }
 
 TWA.loadedTemplate = ''
-
 function TWA.loadTemplate(template, load)
     if load ~= nil and load == true then
         TWA.data = {}
@@ -314,6 +340,7 @@ end
 --    ['hunter'] = { 'Chlo', 'Zteban', 'Ruari' },
 -- }
 
+-- ---@type TWARoster
 -- TWA.testRoster = {
 --     ['druid'] = { "ChuckTesta" },
 --     ['hunter'] = { "LennartBladh" },
@@ -326,6 +353,9 @@ end
 --     ['warrior'] = { "AnothaOne", "BigGuyForYou" },
 -- }
 -- TWA.roster = TWA.testRoster
+
+---@type table<string, TWARoster>
+TWA.otherPeoplesRosters = {}
 
 ---@type TWARoster
 TWA.roster = {
@@ -352,6 +382,62 @@ TWA.raid = {
     ['warlock'] = {},
     ['warrior'] = {},
 }
+
+---Remove the roster of a player from TWA.otherPeoplesRosters when they leave the group.
+---@param name any
+function TWA.removeRosterOf(name)
+    --nyi
+end
+
+---Get the complete roster, consisting of:
+---1. Your own roster
+---1. Leader's roster
+---1. All assistants' rosters
+---@return TWARoster
+function TWA.GetCompleteRoster()
+    ---@type TWARoster
+    local completeRoster = {
+        ['druid'] = {},
+        ['hunter'] = {},
+        ['mage'] = {},
+        ['paladin'] = {},
+        ['priest'] = {},
+        ['rogue'] = {},
+        ['shaman'] = {},
+        ['warlock'] = {},
+        ['warrior'] = {},
+    }
+
+    -- Helper function to add names to the completeRoster without duplicates per class
+    local function addNamesToRoster(class, names)
+        local seenNames = {} -- Track names already added to the class
+        -- Add existing names in completeRoster to seenNames
+        for _, name in ipairs(completeRoster[class]) do
+            seenNames[name] = true
+        end
+        -- Add new names if they are not already in seenNames
+        for _, name in ipairs(names) do
+            if not seenNames[name] then
+                table.insert(completeRoster[class], name)
+                seenNames[name] = true
+            end
+        end
+    end
+
+    -- Merge TWA.roster into completeRoster
+    for class, names in pairs(TWA.roster) do
+        addNamesToRoster(class, names)
+    end
+
+    -- Merge TWA.otherPeoplesRosters into completeRoster
+    for _, otherRoster in pairs(TWA.otherPeoplesRosters) do
+        for class, names in pairs(otherRoster) do
+            addNamesToRoster(class, names)
+        end
+    end
+
+    return completeRoster
+end
 
 ---@type table<TWAWowClass, TWAWowColor>
 TWA.classColors = {
@@ -418,11 +504,303 @@ TWA.groups = {
     ['Group 8'] = TWA.classColors['priest'].c,
 }
 
+---@return boolean
+function TWA.InParty()
+    return GetNumPartyMembers() > 0
+end
+
+---@return boolean
+function TWA.InRaid()
+    return GetNumRaidMembers() > 0
+end
+
+TWA._firstSyncComplete = false;
+---As a non-leader, request full sync of data (when you join the group for example)
+function TWA.RequestSync()
+    twadebug('i request sync')
+    twaprint('Requesting full sync of data from raid leader...')
+    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RequestSync=" .. me, "RAID")
+end
+
+---Only call for leader, broadcast when full sync requested
+function TWA.BroadcastCompleteRoster()
+    if not TWA.InRaid() and not (IsRaidLeader() or IsRaidOfficer()) then return end
+    local roster = TWA.GetCompleteRoster()
+
+    ---@param class string
+    ---@param names table<integer, string>
+    local sendNames = function(class, names)
+        local namesSerialized = ''
+        for _, name in ipairs(names) do
+            if string.len(namesSerialized) > 0 then
+                namesSerialized = namesSerialized .. ',' .. name
+            else
+                namesSerialized = name
+            end
+        end
+        ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=#roster=" .. class .. "=" .. namesSerialized, "RAID")
+    end
+
+    for class, _ in pairs(roster) do
+        if table.getn(roster[class]) > 0 then
+            local curNames = {}
+            for _, name in pairs(roster[class]) do
+                table.insert(curNames, name)
+                if table.getn(curNames) >= MAX_NAMES_PER_MESSAGE then
+                    sendNames(class, curNames)
+                    curNames = {}
+                end
+            end
+            sendNames(class, curNames)
+        end
+    end
+end
+
+---Call to share that you've deleted a member of your roster.
+---Only works in raid and if you are either assistant or leader. (noop otherwise)
+---@param class TWAWowClass
+---@param name string
+function TWA.BroadcastRosterEntryDeleted(class, name)
+    if not TWA.InRaid() and not (IsRaidLeader() or IsRaidOfficer()) then return end
+    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RosterEntryDeleted=" .. class .. "=" .. name, "RAID")
+end
+
+---Call to share your roster with other players. You can pass partial rosters when adding new names to save on bandwidth.
+---Only works in raid and if you are either assistant or leader. (noop otherwise)
+---@param roster TWARoster
+function TWA.BroadcastRoster(roster)
+    if not TWA.InRaid() and not (IsRaidLeader() or IsRaidOfficer()) then return end
+    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RosterBroadcast=start", "RAID")
+
+    ---@param class string
+    ---@param names table<integer, string>
+    local sendNames = function(class, names)
+        local namesSerialized = ''
+        for _, name in ipairs(names) do
+            if string.len(namesSerialized) > 0 then
+                namesSerialized = namesSerialized .. ',' .. name
+            else
+                namesSerialized = name
+            end
+        end
+        ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RosterBroadcast=" .. class .. "=" .. namesSerialized, "RAID")
+    end
+
+    for class, _ in pairs(roster) do
+        if table.getn(roster[class]) > 0 then
+            local curNames = {}
+            for _, name in pairs(roster[class]) do
+                table.insert(curNames, name)
+                if table.getn(curNames) >= MAX_NAMES_PER_MESSAGE then
+                    sendNames(class, curNames)
+                    curNames = {}
+                end
+            end
+            sendNames(class, curNames)
+        end
+    end
+
+    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RosterBroadcast=end", "RAID")
+end
+
+---As a leader, broadcast a full sync of data (when a player requests it, or the group is converted from party to raid).
+---Does nothing if not a raid leader.
+function TWA.BroadcastSync()
+    if not IsRaidLeader() then return end
+    twadebug('i broadcast sync')
+    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=start", "RAID")
+    for _, data in next, TWA.data do
+        ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=" ..
+            data[1] .. '=' ..
+            data[2] .. '=' ..
+            data[3] .. '=' ..
+            data[4] .. '=' ..
+            data[5] .. '=' ..
+            data[6] .. '=' ..
+            data[7], "RAID")
+    end
+
+    TWA.BroadcastCompleteRoster()
+
+    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=end", "RAID")
+end
+
+---@type TWAGroupState
+TWA._playerGroupState = nil
+TWA._playerGroupStateInitialized = false
+TWA.InitializeGroupState = function()
+    if TWA._playerGroupStateInitialized then return end
+    TWA._playerGroupStateInitialized = true;
+    TWA.PlayerGroupStateUpdate()
+
+    if TWA._playerGroupState == 'raid' and IsRaidLeader() then
+        TWA.BroadcastSync() -- overwrite any changes made by assistants while you were offline
+    end
+end
+
+---Updates the player's group state, and runs appropriate side effects on changes (for example, request sync if logging in while in raid)
+function TWA.PlayerGroupStateUpdate()
+    ---@param newState TWAGroupState
+    local function setGroupState(newState)
+        local oldState = TWA._playerGroupState or 'NIL';
+        if oldState ~= newState then
+            twadebug('state changed from ' .. oldState .. ' to ' .. newState)
+        end
+
+        TWA._playerGroupState = newState
+    end
+
+
+    if not TWA._playerGroupStateInitialized then
+        twadebug('player group state not initialized, ignored update')
+        return
+    end
+
+    if TWA._playerGroupState == nil then
+        twadebug('i just logged in')
+        -- reloaded ui or logged in
+        setGroupState('alone')
+
+        if TWA.InParty() then
+            -- logged in while in party
+            setGroupState('party')
+        else
+            twadebug('not in party')
+        end
+        if TWA.InRaid() then
+            setGroupState('raid')
+            -- logged in while in raid group
+            if not IsRaidLeader() then TWA.RequestSync() end
+        else
+            twadebug('not in raid')
+        end
+    elseif TWA._playerGroupState == 'alone' and TWA.InParty() then
+        -- joined a group
+        setGroupState('party')
+
+        if TWA.InRaid() then
+            -- joined a raid
+            setGroupState('raid')
+            TWA.RequestSync()
+        end
+    elseif (TWA._playerGroupState == 'party' or TWA._playerGroupState == 'raid') and not TWA.InParty() then
+        -- left the group
+        TWA.otherPeoplesRosters = {}
+        setGroupState('alone')
+    elseif TWA._playerGroupState == 'party' and TWA.InRaid() then
+        -- party was converted to raid
+        setGroupState('raid')
+        if IsRaidLeader() then TWA.BroadcastSync() end
+    end
+end
+
+---@type table<integer, TWATimeoutCallback>
+local callbacks = {}
+
+---@return Frame
+local function getTimeoutFrame()
+    local frameName = "TWA_TimeOutFrame"
+    return getglobal(frameName) or CreateFrame("Frame", frameName)
+end
+
+local frameCounter = 0
+local function mod(a, b)
+    return a - math.floor(a / b) * b
+end
+local function checkCallbacks()
+    frameCounter = frameCounter + 1
+    if mod(frameCounter, CHECK_TIMEOUTS_EACH_N_FRAMES) ~= 0 then return end
+
+    local curTime = GetTime()
+    local invokedCallbacks = {}
+
+    for i, tc in ipairs(callbacks) do
+        if tc.startTime + tc.delay <= curTime then
+            tc.callback()
+            table.insert(invokedCallbacks, i)
+        end
+    end
+
+    local i = table.getn(invokedCallbacks)
+    while i > 0 do
+        table.remove(callbacks, invokedCallbacks[i]);
+        i = i - 1
+    end
+
+    if table.getn(callbacks) == 0 then
+        getTimeoutFrame():SetScript("OnUpdate", nil);
+    end
+end
+
+-- https://gist.github.com/jrus/3197011
+local random = math.random
+local function uuid()
+    local template = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+    return string.gsub(template, '[xy]', function(c)
+        local v = (c == 'x') and random(0, 15) or random(8, 11)
+        return string.format('%x', v)
+    end)
+end
+
+---Set a callback function to be called after a timeout.
+---@param callback function The function to call after the delay
+---@param delay number Number of seconds to delay, accepts decimals
+---@return string id The id of the timeout
+function TWA.setTimeout(callback, delay)
+    local waitFrame = getTimeoutFrame()
+    local timeoutId = uuid()
+
+    ---@type TWATWATimeoutCallback
+    local tc = {
+        id = timeoutId,
+        callback = callback,
+        delay = delay,
+        startTime = GetTime()
+    }
+    table.insert(callbacks, tc)
+
+    waitFrame:SetScript("OnUpdate", checkCallbacks)
+    return timeoutId;
+end
+
+---Cancel an already queued timeout
+---@param id string The id of the timeout
+function TWA.clearTimeout(id)
+    if id == nil then return end
+    ---@type integer|nil
+    local timeoutToDelete = nil
+
+    for i, tc in ipairs(callbacks) do
+        if timeoutToDelete ~= nil then break end
+        if tc.id == id then
+            timeoutToDelete = i
+        end
+    end
+
+    if timeoutToDelete == nil then return end
+
+    table.remove(callbacks, timeoutToDelete);
+
+    if table.getn(callbacks) == 0 then
+        getTimeoutFrame():SetScript("OnUpdate", nil);
+    end
+end
+
+---When a player joins a raid group, both the PARTY_MEMBERS_CHANGED and RAID_ROSTER_UPDATE events are fired, in that order.
+---I want to treat them as the same even IF they happen within half a second of each other. That is the purpose of this timeout.
+---@type string|nil
+TWA.partyAndRaidCombinedEventTimeoutId = nil
+
 TWA:SetScript("OnEvent", function()
     if not event then return end
 
     if event == "ADDON_LOADED" and arg1 == "TWAssignments" then
-        twaprint("TWA Loaded")
+        twaprint("ADDON_LOADED")
+        TWA.setTimeout(function()
+            twadebug('initializing group state')
+            TWA.InitializeGroupState()
+        end, LOGIN_GRACE_PERIOD)
+
         if not TWA_PRESETS then
             TWA_PRESETS = {}
         end
@@ -437,16 +815,28 @@ TWA:SetScript("OnEvent", function()
         if TWA_ROSTER and TWA.testRoster == nil then
             TWA.roster = TWA_ROSTER
         end
+
+        TWA.PlayerGroupStateUpdate()
         TWA.fillRaidData()
         TWA.PopulateTWA()
         tinsert(UISpecialFrames, "TWA_Main") --makes window close with Esc key
-        tinsert(UISpecialFrames, "TWA_RosterManager") 
+        tinsert(UISpecialFrames, "TWA_RosterManager")
     end
 
     if event == "RAID_ROSTER_UPDATE" then
-        twadebug('raid roster update event')
+        twadebug("RAID_ROSTER_UPDATE")
+        if TWA.partyAndRaidCombinedEventTimeoutId ~= nil then
+            TWA.clearTimeout(TWA.partyAndRaidCombinedEventTimeoutId)
+            TWA.partyAndRaidCombinedEventTimeoutId = nil
+        end
+        TWA.PlayerGroupStateUpdate()
         TWA.fillRaidData()
         TWA.PopulateTWA()
+    end
+
+    if event == "PARTY_MEMBERS_CHANGED" then
+        twadebug("PARTY_MEMBERS_CHANGED")
+        TWA.partyAndRaidCombinedEventTimeoutId = TWA.setTimeout(TWA.PlayerGroupStateUpdate, DOUBLE_EVENT_TIMEOUT)
     end
 
     if event == 'CHAT_MSG_ADDON' and arg1 == "TWA" then
@@ -517,21 +907,134 @@ function TWA.markOrPlayerUsed(markOrPlayer)
     return false
 end
 
-table.contains = function(tbl, value)
-    for i = 1, table.getn(tbl) do
-        if (tbl[i] == value) then
-            return true
-        end
-    end
-    return false
-end
-
 function TWA.persistRoster()
     TWA_ROSTER = TWA.roster
 end
 
+---@param prev boolean
+---@param new boolean
+function TWA.OnLeaderOnlineUpdate(prev, new)
+    if prev == new then return end
+    if prev == false and new == true then
+        TWA._leaderOnline = true
+        twadebug('leader just came online')
+    elseif prev == true and new == false then
+        TWA._leaderOnline = false
+        twadebug('leader just disconnected')
+    end
+end
+
+TWA._raidStateInitialized = false;
+---@type string|nil
+TWA._leader = nil
+---@type table<integer, string>
+TWA._assistants = {}
+
+---Call when a player was promoted to raid leader or assist.
+---They should broadcast their roster.
+---@param name string
+function TWA.PlayerWasPromoted(name)
+    if TWA._raidStateInitialized then
+        twadebug('player was promoted: ' .. name)
+        if name == me then TWA.BroadcastRoster(TWA.roster) end
+    end
+end
+
+---Call when a player is either
+---* No longer has either lead or assist role
+---* Is removed from the group
+---Their roster entries should be dropped.
+---@param name string
+function TWA.PlayerWasDemoted(name)
+    TWA.otherPeoplesRosters[name] = nil
+    twadebug('player was demoted: ' .. name)
+end
+
+function TWA.CheckIfPromoted(name, newRank)
+    if newRank == 2 then
+        if TWA._leader ~= name then
+            TWA.PlayerWasPromoted(name)
+        end
+    elseif newRank == 1 then
+        if not TWA.tableContains(TWA._assistants, name) then
+            TWA.PlayerWasPromoted(name)
+        end
+    else
+        -- wtf?
+    end
+end
+
+function TWA.CheckIfDemoted(name) -- new rank is always "normal" (neither officer nor leader)
+    if TWA._leader == name or TWA.tableContains(TWA._assistants, name) then
+        TWA.PlayerWasDemoted(name)
+    end
+end
+
+function TWA.updateRaidStatus()
+    local oldLeader = TWA._leader;
+    local newLeader = nil;
+    ---@type table<string, integer>
+    local nameCache = {}
+
+    for i = 0, GetNumRaidMembers() do
+        if GetRaidRosterInfo(i) then
+            local name, rank, _, _, _, _, z = GetRaidRosterInfo(i);
+            local _, unitClass = UnitClass('raid' .. i)
+            unitClass = string.lower(unitClass)
+            nameCache[name] = i
+
+            if rank == 2 then -- leader
+                TWA.CheckIfPromoted(name, rank)
+                newLeader = name
+                local prevState = TWA._leaderOnline
+                if z == "Offline" then
+                    TWA._leaderOnline = false
+                else
+                    TWA._leaderOnline = true
+                end
+                TWA.OnLeaderOnlineUpdate(prevState, TWA._leaderOnline)
+            elseif rank == 1 then -- assist
+                TWA.CheckIfPromoted(name, rank)
+                if not TWA.tableContains(TWA._assistants, name) then
+                    table.insert(TWA._assistants, name)
+                end
+            else -- pleb
+                TWA.CheckIfDemoted(name)
+                if TWA._leader == name then
+                    TWA._leader = nil
+                elseif TWA.tableContains(TWA._assistants, name) then
+                    local index = TWA.tablePosOf(TWA._assistants, name)
+                    if index ~= nil then
+                        table.remove(TWA._assistants, index)
+                    end
+                end
+            end
+        end
+    end
+
+    TWA._leader = newLeader;
+
+    -- check all current assists and leader if they have left the group
+    if oldLeader ~= nil and nameCache[oldLeader] == nil then
+        twadebug('leader left the raid: ' .. oldLeader)
+        TWA.otherPeoplesRosters[oldLeader] = nil
+    end
+
+    for _, name in ipairs(TWA._assistants) do
+        if nameCache[name] == nil then
+            twadebug('assistant left the raid: ' .. oldLeader)
+            TWA.otherPeoplesRosters[name] = nil
+        end
+    end
+
+    TWA._raidStateInitialized = true
+end
+
 function TWA.fillRaidData()
     twadebug('fill raid data')
+
+    TWA.updateRaidStatus()
+
     TWA.raid = {
         ['warrior'] = {},
         ['paladin'] = {},
@@ -554,9 +1057,9 @@ function TWA.fillRaidData()
         end
     end
     -- roster list (see TWA.roster)
-    for class, names in pairs(TWA.roster) do
+    for class, names in pairs(TWA.GetCompleteRoster()) do
         for _, name in pairs(names) do
-            if not table.contains(TWA.raid[class], name) then
+            if not TWA.tableContains(TWA.raid[class], name) then
                 table.insert(TWA.raid[class], name)
             end
             table.sort(TWA.raid[class])
@@ -570,7 +1073,7 @@ function TWA.isPlayerOffline(name)
         if (GetRaidRosterInfo(i)) then
             local n, _, _, _, _, _, z = GetRaidRosterInfo(i);
             if n == name then
-                playerFound = true    
+                playerFound = true
                 if z == 'Offline' then
                     return true
                 end
@@ -578,10 +1081,45 @@ function TWA.isPlayerOffline(name)
         end
         if playerFound then break end
     end
-    if not playerFound then 
+    if not playerFound then
         return true -- if not in group, treat as offline (can be in roster yet not in group)
-    end 
+    end
     return false
+end
+
+---Handles adding players from other people's rosters to TWA.otherPeoplesRosters.
+---Duplicate names are not allowed within a class, but is OK across classes.
+---@param rosterOwner any
+---@param class any
+---@param player any
+function TWA.addUniqueToRoster(rosterOwner, class, player)
+    -- Ensure the rosterOwner has a roster in TWA.otherPeoplesRosters
+    if not TWA.otherPeoplesRosters[rosterOwner] then
+        TWA.otherPeoplesRosters[rosterOwner] = {
+            ['druid'] = {},
+            ['hunter'] = {},
+            ['mage'] = {},
+            ['paladin'] = {},
+            ['priest'] = {},
+            ['rogue'] = {},
+            ['shaman'] = {},
+            ['warlock'] = {},
+            ['warrior'] = {},
+        }
+    end
+
+    -- Access the roster for this specific rosterOwner
+    local ownerRoster = TWA.otherPeoplesRosters[rosterOwner]
+
+    -- Check if the player is already in the class list
+    for _, existingPlayer in ipairs(ownerRoster[class]) do
+        if existingPlayer == player then
+            return -- Player already exists in this class, no need to add
+        end
+    end
+
+    -- If player isn't in the list, add them to the class
+    table.insert(ownerRoster[class], player)
 end
 
 function TWA.handleSync(_, t, _, sender)
@@ -594,27 +1132,9 @@ function TWA.handleSync(_, t, _, sender)
         return true
     end
 
-    if string.find(t, 'SendTable=', 1, true) then
-        local sendEx = string.split(t, '=')
-        if not sendEx[2] then
-            return false
-        end
-
-        if sendEx[2] == me then
-            ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=start", "RAID")
-            for _, data in next, TWA.data do
-                ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=" ..
-                    data[1] .. '=' ..
-                    data[2] .. '=' ..
-                    data[3] .. '=' ..
-                    data[4] .. '=' ..
-                    data[5] .. '=' ..
-                    data[6] .. '=' ..
-                    data[7], "RAID")
-            end
-            ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=end", "RAID")
-        end
-        return true
+    if string.find(t, 'RequestSync=', 1, true) and sender ~= me then
+        twadebug(sender .. ' requested full sync')
+        if IsRaidLeader() then TWA.BroadcastSync() end
     end
 
     if string.find(t, 'FullSync=', 1, true) and sender ~= me then
@@ -622,7 +1142,18 @@ function TWA.handleSync(_, t, _, sender)
         if sEx[2] == 'start' then
             TWA.data = {}
         elseif sEx[2] == 'end' then
+            TWA.fillRaidData()
             TWA.PopulateTWA()
+            if not TWA._firstSyncComplete then
+                twaprint('Full sync complete')
+                TWA._firstSyncComplete = true
+            end
+        elseif sEx[2] == '#roster' then
+            local class = sEx[3]
+            local names = string.split(sEx[4], ',')
+            for _, name in ipairs(names) do
+                TWA.addUniqueToRoster(sender, class, name)
+            end
         else
             if sEx[2] and sEx[3] and sEx[4] and sEx[5] and sEx[6] and sEx[7] and sEx[8] then
                 local index = table.getn(TWA.data) + 1
@@ -639,6 +1170,42 @@ function TWA.handleSync(_, t, _, sender)
         return true
     end
 
+    if string.find(t, 'RosterBroadcast=', 1, true) and sender ~= me then
+        local sEx = string.split(t, '=')
+        if sEx[2] == 'start' then
+            -- todo: could add some handling for simultaneous incoming broadcasts:
+            -- add to list of incoming broadcasts
+        elseif sEx[2] == 'end' then
+            -- remove from list of incoming broadcasts
+            -- only if list of broadcasts is empty, run the following stuff:
+            TWA.fillRaidData()
+            TWA.PopulateTWA()
+        else
+            local class = sEx[2]
+            local names = string.split(sEx[3], ',')
+            for _, name in ipairs(names) do
+                TWA.addUniqueToRoster(sender, class, name)
+            end
+        end
+    end
+
+    if string.find(t, 'RosterEntryDeleted=', 1, true) and sender ~= me then
+        local sEx = string.split(t, '=')
+        local class = sEx[2]
+        local name = sEx[3]
+
+        if TWA.otherPeoplesRosters[sender] ~= nil then
+            if TWA.otherPeoplesRosters[sender][class] ~= nil then
+                local nameIndex = TWA.tablePosOf(TWA.otherPeoplesRosters[sender][class], name)
+                if nameIndex ~= nil then
+                    table.remove(TWA.otherPeoplesRosters[sender][class], nameIndex)
+                    TWA.fillRaidData()
+                    TWA.PopulateTWA()
+                end
+            end
+        end
+    end
+
     if string.find(t, 'RemRow=', 1, true) then
         local rowEx = string.split(t, '=')
         if not rowEx[2] then
@@ -651,6 +1218,7 @@ function TWA.handleSync(_, t, _, sender)
         TWA.RemRow(tonumber(rowEx[2]), sender)
         return true
     end
+
     if string.find(t, 'ChangeCell=', 1, true) then
         local changeEx = string.split(t, '=')
         if not changeEx[2] or not changeEx[3] or not changeEx[4] then
@@ -663,10 +1231,12 @@ function TWA.handleSync(_, t, _, sender)
         TWA.change(tonumber(changeEx[2]), changeEx[3], sender, changeEx[4] == '1')
         return true
     end
+
     if string.find(t, 'Reset', 1, true) then
         TWA.Reset()
         return true
     end
+
     if string.find(t, 'AddLine', 1, true) then
         TWA.AddLine()
         return true
@@ -708,196 +1278,7 @@ function TWA.handleQHSync(pre, t, ch, sender)
     end
 end
 
-TWA.rows = {}
-TWA.cells = {}
-
-function TWA.changeCell(xy, to, dontOpenDropdown)
-    dontOpenDropdown = dontOpenDropdown and 1 or 0
-
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "ChangeCell=" .. xy .. "=" .. to .. "=" .. dontOpenDropdown, "RAID")
-
-    local x = math.floor(xy / 100)
-    local y = xy - x * 100
-    CloseDropDownMenus()
-end
-
-function TWA.change(xy, to, sender, dontOpenDropdown)
-    local x = math.floor(xy / 100)
-    local y = xy - x * 100
-
-    if to ~= 'Clear' then
-        TWA.data[x][y] = to
-    else
-        TWA.data[x][y] = '-'
-    end
-
-    TWA.PopulateTWA()
-end
-
-function TWA.PopulateTWA()
-    twadebug('PopulateTWA')
-
-    for i = 1, 25 do
-        if TWA.rows[i] then
-            if TWA.rows[i]:IsVisible() then
-                TWA.rows[i]:Hide()
-            end
-        end
-    end
-
-    for index, data in next, TWA.data do
-        if not TWA.rows[index] then
-            TWA.rows[index] = CreateFrame('Frame', 'TWRow' .. index, getglobal("TWA_Main"), 'TWRow')
-        end
-
-        TWA.rows[index]:Show()
-
-        TWA.rows[index]:SetBackdropColor(0, 0, 0, .2);
-
-        TWA.rows[index]:SetPoint("TOP", getglobal("TWA_Main"), "TOP", 0, -25 - index * 21)
-        if not TWA.cells[index] then
-            TWA.cells[index] = {}
-        end
-
-        getglobal('TWRow' .. index .. 'CloseRow'):SetID(index)
-
-        local line = ''
-
-        for i, name in data do
-            if not TWA.cells[index][i] then
-                TWA.cells[index][i] = CreateFrame('Frame', 'TWCell' .. index .. i, TWA.rows[index], 'TWCell')
-            end
-
-            TWA.cells[index][i]:SetPoint("LEFT", TWA.rows[index], "LEFT", -82 + i * 82, 0)
-
-            getglobal('TWCell' .. index .. i .. 'Button'):SetID((index * 100) + i)
-
-            local color = TWA.classColors['priest'].c
-            TWA.cells[index][i]:SetBackdropColor(.2, .2, .2, .7);
-            if i > 1 then
-                for c, n in next, TWA.raid do
-                    for _, raidMember in next, n do
-                        if raidMember == name then
-                            color = TWA.classColors[c].c
-                            local r = TWA.classColors[c].r
-                            local g = TWA.classColors[c].g
-                            local b = TWA.classColors[c].b
-                            TWA.cells[index][i]:SetBackdropColor(r, g, b, .7);
-                            break
-                        end
-                    end
-                end
-            end
-
-
-            if TWA.marks[name] then
-                color = TWA.marks[name]
-            end
-            if TWA.sides[name] then
-                color = TWA.sides[name]
-            end
-            if TWA.coords[name] then
-                color = TWA.coords[name]
-            end
-            if TWA.misc[name] then
-                color = TWA.misc[name]
-            end
-            if TWA.groups[name] then
-                color = TWA.groups[name]
-            end
-
-            if name == '-' then
-                name = ''
-            end
-
-            if i > 1 and name ~= '' and TWA.isPlayerOffline(name) then
-                color = '|cffff0000'
-            end
-
-            getglobal('TWCell' .. index .. i .. 'Text'):SetText(color .. name)
-
-            getglobal('TWCell' .. index .. i .. 'Icon'):Hide()
-            getglobal('TWCell' .. index .. i .. 'Icon'):SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons");
-
-            if name == 'Skull' then
-                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.75, 1, 0.25, 0.5)
-                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
-            end
-            if name == 'Cross' then
-                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.5, 0.75, 0.25, 0.5)
-                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
-            end
-            if name == 'Square' then
-                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.25, 0.5, 0.25, 0.5)
-                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
-            end
-            if name == 'Moon' then
-                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0, 0.25, 0.25, 0.5)
-                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
-            end
-            if name == 'Triangle' then
-                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.75, 1, 0, 0.25)
-                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
-            end
-            if name == 'Diamond' then
-                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.5, 0.75, 0, 0.25)
-                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
-            end
-            if name == 'Circle' then
-                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.25, 0.5, 0, 0.25)
-                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
-            end
-            if name == 'Star' then
-                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0, 0.25, 0, 0.25)
-                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
-            end
-
-            line = line .. name .. '-'
-        end
-    end
-
-    getglobal('TWA_Main'):SetHeight(50 + table.getn(TWA.data) * 21)
-    TWA_DATA = TWA.data
-end
-
-function Buttoane_OnEnter(id)
-    local index = math.floor(id / 100)
-
-    if id < 100 then
-        index = id
-    end
-
-    getglobal('TWRow' .. index):SetBackdropColor(1, 1, 1, .2)
-end
-
-function Buttoane_OnLeave(id)
-    local index = math.floor(id / 100)
-
-    if id < 100 then
-        index = id
-    end
-
-    getglobal('TWRow' .. index):SetBackdropColor(0, 0, 0, .2)
-end
-
-function TWAHandleRosterEditBox(editBox)
-    local scrollBar = getglobal(editBox:GetParent():GetName() .. "ScrollBar")
-    editBox:GetParent():UpdateScrollChildRect();
-
-    local _, max = scrollBar:GetMinMaxValues();
-    scrollBar.prevMaxValue = scrollBar.prevMaxValue or max
-
-    if math.abs(scrollBar.prevMaxValue - scrollBar:GetValue()) <= 1 then
-        -- if scroll is down and add new line then move scroll
-        scrollBar:SetValue(max);
-    end
-    if max ~= scrollBar.prevMaxValue then
-        -- save max value
-        scrollBar.prevMaxValue = max
-    end
-end
-
-function buildTargetsDropdown()
+function TWA.buildTargetsDropdown()
     if UIDROPDOWNMENU_MENU_LEVEL == 1 then
         local Title = {}
         Title.text = "Target"
@@ -1161,7 +1542,7 @@ function buildTargetsDropdown()
     end
 end
 
-function buildTanksDropdown()
+function TWA.buildTanksDropdown()
     if UIDROPDOWNMENU_MENU_LEVEL == 1 then
         local Title = {}
         Title.text = "Tanks"
@@ -1303,7 +1684,7 @@ function buildTanksDropdown()
     end
 end
 
-function buildHealersDropdown()
+function TWA.buildHealersDropdown()
     if UIDROPDOWNMENU_MENU_LEVEL == 1 then
         local Healers = {}
         Healers.text = "Healers"
@@ -1386,32 +1767,218 @@ function buildHealersDropdown()
     end
 end
 
+TWA.rows = {}
+TWA.cells = {}
+
+function TWA.changeCell(xy, to, dontOpenDropdown)
+    dontOpenDropdown = dontOpenDropdown and 1 or 0
+
+    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "ChangeCell=" .. xy .. "=" .. to .. "=" .. dontOpenDropdown, "RAID")
+
+    local x = math.floor(xy / 100)
+    local y = xy - x * 100
+    CloseDropDownMenus()
+end
+
+function TWA.change(xy, to, sender, dontOpenDropdown)
+    local x = math.floor(xy / 100)
+    local y = xy - x * 100
+
+    if to ~= 'Clear' then
+        TWA.data[x][y] = to
+    else
+        TWA.data[x][y] = '-'
+    end
+
+    TWA.PopulateTWA()
+end
+
+function TWA.PopulateTWA()
+    twadebug('PopulateTWA')
+
+    for i = 1, 25 do
+        if TWA.rows[i] then
+            if TWA.rows[i]:IsVisible() then
+                TWA.rows[i]:Hide()
+            end
+        end
+    end
+
+    for index, data in next, TWA.data do
+        if not TWA.rows[index] then
+            TWA.rows[index] = CreateFrame('Frame', 'TWRow' .. index, getglobal("TWA_Main"), 'TWRow')
+        end
+
+        TWA.rows[index]:Show()
+
+        TWA.rows[index]:SetBackdropColor(0, 0, 0, .2);
+
+        TWA.rows[index]:SetPoint("TOP", getglobal("TWA_Main"), "TOP", 0, -25 - index * 21)
+        if not TWA.cells[index] then
+            TWA.cells[index] = {}
+        end
+
+        getglobal('TWRow' .. index .. 'CloseRow'):SetID(index)
+
+        local line = ''
+
+        for i, name in data do
+            if not TWA.cells[index][i] then
+                TWA.cells[index][i] = CreateFrame('Frame', 'TWCell' .. index .. i, TWA.rows[index], 'TWCell')
+            end
+
+            TWA.cells[index][i]:SetPoint("LEFT", TWA.rows[index], "LEFT", -82 + i * 82, 0)
+
+            getglobal('TWCell' .. index .. i .. 'Button'):SetID((index * 100) + i)
+
+            local color = TWA.classColors['priest'].c
+            TWA.cells[index][i]:SetBackdropColor(.2, .2, .2, .7);
+            if i > 1 then
+                for c, n in next, TWA.raid do
+                    for _, raidMember in next, n do
+                        if raidMember == name then
+                            color = TWA.classColors[c].c
+                            local r = TWA.classColors[c].r
+                            local g = TWA.classColors[c].g
+                            local b = TWA.classColors[c].b
+                            TWA.cells[index][i]:SetBackdropColor(r, g, b, .7);
+                            break
+                        end
+                    end
+                end
+            end
+
+
+            if TWA.marks[name] then
+                color = TWA.marks[name]
+            end
+            if TWA.sides[name] then
+                color = TWA.sides[name]
+            end
+            if TWA.coords[name] then
+                color = TWA.coords[name]
+            end
+            if TWA.misc[name] then
+                color = TWA.misc[name]
+            end
+            if TWA.groups[name] then
+                color = TWA.groups[name]
+            end
+
+            if name == '-' then
+                name = ''
+            end
+
+            if i > 1 and name ~= '' and TWA.isPlayerOffline(name) then
+                color = '|cffff0000'
+            end
+
+            getglobal('TWCell' .. index .. i .. 'Text'):SetText(color .. name)
+
+            getglobal('TWCell' .. index .. i .. 'Icon'):Hide()
+            getglobal('TWCell' .. index .. i .. 'Icon'):SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons");
+
+            if name == 'Skull' then
+                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.75, 1, 0.25, 0.5)
+                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
+            end
+            if name == 'Cross' then
+                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.5, 0.75, 0.25, 0.5)
+                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
+            end
+            if name == 'Square' then
+                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.25, 0.5, 0.25, 0.5)
+                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
+            end
+            if name == 'Moon' then
+                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0, 0.25, 0.25, 0.5)
+                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
+            end
+            if name == 'Triangle' then
+                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.75, 1, 0, 0.25)
+                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
+            end
+            if name == 'Diamond' then
+                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.5, 0.75, 0, 0.25)
+                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
+            end
+            if name == 'Circle' then
+                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.25, 0.5, 0, 0.25)
+                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
+            end
+            if name == 'Star' then
+                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0, 0.25, 0, 0.25)
+                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
+            end
+
+            line = line .. name .. '-'
+        end
+    end
+
+    getglobal('TWA_Main'):SetHeight(50 + table.getn(TWA.data) * 21)
+    TWA_DATA = TWA.data
+end
+
+function Buttoane_OnEnter(id)
+    local index = math.floor(id / 100)
+
+    if id < 100 then
+        index = id
+    end
+
+    getglobal('TWRow' .. index):SetBackdropColor(1, 1, 1, .2)
+end
+
+function Buttoane_OnLeave(id)
+    local index = math.floor(id / 100)
+
+    if id < 100 then
+        index = id
+    end
+
+    getglobal('TWRow' .. index):SetBackdropColor(0, 0, 0, .2)
+end
+
+function TWAHandleRosterEditBox(editBox)
+    local scrollBar = getglobal(editBox:GetParent():GetName() .. "ScrollBar")
+    editBox:GetParent():UpdateScrollChildRect();
+
+    local _, max = scrollBar:GetMinMaxValues();
+    scrollBar.prevMaxValue = scrollBar.prevMaxValue or max
+
+    if math.abs(scrollBar.prevMaxValue - scrollBar:GetValue()) <= 1 then
+        -- if scroll is down and add new line then move scroll
+        scrollBar:SetValue(max);
+    end
+    if max ~= scrollBar.prevMaxValue then
+        -- save max value
+        scrollBar.prevMaxValue = max
+    end
+end
+
 TWA.currentRow = 0
 TWA.currentCell = 0
 
 function TWCell_OnClick(id)
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
-        twaprint("You need to be a raid leader or assistant to do that")
-        return
-    end
+    if not TWA_CanMakeChanges() then return end
     TWA.currentRow = math.floor(id / 100)
     TWA.currentCell = id - TWA.currentRow * 100
 
     --targets
     if TWA.currentCell == 1 then
-        UIDropDownMenu_Initialize(TWATargetsDropDown, buildTargetsDropdown, "MENU");
+        UIDropDownMenu_Initialize(TWATargetsDropDown, TWA.buildTargetsDropdown, "MENU");
         ToggleDropDownMenu(1, nil, TWATargetsDropDown, "cursor", 2, 3);
     end
 
     --tanks
     if TWA.currentCell == 2 or TWA.currentCell == 3 or TWA.currentCell == 4 then
-        UIDropDownMenu_Initialize(TWATanksDropDown, buildTanksDropdown, "MENU");
+        UIDropDownMenu_Initialize(TWATanksDropDown, TWA.buildTanksDropdown, "MENU");
         ToggleDropDownMenu(1, nil, TWATanksDropDown, "cursor", 2, 3);
     end
 
     --healers
     if TWA.currentCell == 5 or TWA.currentCell == 6 or TWA.currentCell == 7 then
-        UIDropDownMenu_Initialize(TWAHealersDropDown, buildHealersDropdown, "MENU");
+        UIDropDownMenu_Initialize(TWAHealersDropDown, TWA.buildHealersDropdown, "MENU");
         ToggleDropDownMenu(1, nil, TWAHealersDropDown, "cursor", 2, 3);
     end
 
@@ -1422,10 +1989,7 @@ function TWCell_OnClick(id)
 end
 
 function AddLine_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
-        twaprint("You need to be a raid leader or assistant to do that")
-        return
-    end
+    if not TWA_CanMakeChanges() then return end
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "AddLine", "RAID")
 end
 
@@ -1437,10 +2001,7 @@ function TWA.AddLine()
 end
 
 function SpamRaid_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
-        twaprint("You need to be a raid leader or assistant to do that")
-        return
-    end
+    if not TWA_CanMakeChanges() then return end
     ChatThrottleLib:SendChatMessage("BULK", "TWA", "======= RAID ASSIGNMENTS =======", "RAID_WARNING")
 
     for _, data in next, TWA.data do
@@ -1481,10 +2042,7 @@ function SpamRaid_OnClick()
 end
 
 function RemRow_OnClick(id)
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
-        twaprint("You need to be a raid leader or assistant to do that")
-        return
-    end
+    if not TWA_CanMakeChanges() then return end
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RemRow=" .. id, "RAID")
 end
 
@@ -1510,10 +2068,7 @@ function TWA.RemRow(id, sender)
 end
 
 function Reset_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
-        twaprint("You need to be a raid leader or assistant to do that")
-        return
-    end
+    if not TWA_CanMakeChanges() then return end
 
     StaticPopupDialogs["TWA_RESET_CONFIRM"] = {
         text = "Are you sure you want to clear current assignments?",
@@ -1889,19 +2444,13 @@ function buildTemplatesDropdown()
 end
 
 function Templates_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
-        twaprint("You need to be a raid leader or assistant to do that")
-        return
-    end
+    if not TWA_CanMakeChanges() then return end
     UIDropDownMenu_Initialize(TWATemplates, buildTemplatesDropdown, "MENU");
     ToggleDropDownMenu(1, nil, TWATemplates, "cursor", 2, 3);
 end
 
 function LoadPreset_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
-        twaprint("You need to be a raid leader or assistant to do that")
-        return
-    end
+    if not TWA_CanMakeChanges() then return end
     if TWA.loadedTemplate == '' then
         twaprint('Please load a template first.')
     else
@@ -1922,10 +2471,7 @@ function LoadPreset_OnClick()
 end
 
 function SavePreset_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
-        twaprint("You need to be a raid leader or assistant to do that")
-        return
-    end
+    if not TWA_CanMakeChanges() then return end
     if TWA.loadedTemplate == '' then
         twaprint('Please load a template first.')
     else
@@ -1942,10 +2488,7 @@ function SavePreset_OnClick()
 end
 
 function SyncBW_OnClick()
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
-        twaprint("You need to be a raid leader or assistant to do that")
-        return
-    end
+    if not TWA_CanMakeChanges() then return end
     ChatThrottleLib:SendAddonMessage("ALERT", "TWABW", "BWSynch=start", "RAID")
 
     for _, data in next, TWA.data do
@@ -1981,6 +2524,8 @@ function SyncBW_OnClick()
     ChatThrottleLib:SendAddonMessage("ALERT", "TWABW", "BWSynch=end", "RAID")
 end
 
+---@param delimiter string
+---@return table<integer, string>
 function string:split(delimiter)
     local result = {}
     local from = 1
