@@ -906,25 +906,6 @@ function TWA.markOrPlayerUsed(markOrPlayer)
     return false
 end
 
----Find the position of a value in a simple list.
----The table should be a sequential list of comparable values (e.g., numbers or strings).
----@param tbl table<integer, any> -- Sequential list to search.
----@param value any -- Value to search for in the list.
----@return integer|nil -- Index of the value if found, otherwise nil.
-table.posOf = function(tbl, value)
-    for i, val in ipairs(tbl) do
-        if val == value then return i end
-    end
-    return nil
-end
-
-table.contains = function(tbl, value)
-    for i = 1, table.getn(tbl) do
-        if (tbl[i] == value) then return true end
-    end
-    return false
-end
-
 function TWA.persistRoster()
     TWA_ROSTER = TWA.roster
 end
@@ -974,7 +955,7 @@ function TWA.CheckIfPromoted(name, newRank)
             TWA.PlayerWasPromoted(name)
         end
     elseif newRank == 1 then
-        if not table.contains(TWA._assistants, name) then
+        if not TWA.tableContains(TWA._assistants, name) then
             TWA.PlayerWasPromoted(name)
         end
     else
@@ -983,7 +964,7 @@ function TWA.CheckIfPromoted(name, newRank)
 end
 
 function TWA.CheckIfDemoted(name) -- new rank is always "normal" (neither officer nor leader)
-    if TWA._leader == name or table.contains(TWA._assistants, name) then
+    if TWA._leader == name or TWA.tableContains(TWA._assistants, name) then
         TWA.PlayerWasDemoted(name)
     end
 end
@@ -1013,15 +994,15 @@ function TWA.updateRaidStatus()
                 TWA.OnLeaderOnlineUpdate(prevState, TWA._leaderOnline)
             elseif rank == 1 then -- assist
                 TWA.CheckIfPromoted(name, rank)
-                if not table.contains(TWA._assistants, name) then
+                if not TWA.tableContains(TWA._assistants, name) then
                     table.insert(TWA._assistants, name)
                 end
             else
                 TWA.CheckIfDemoted(name)
                 if TWA._leader == name then
                     TWA._leader = nil
-                elseif table.contains(TWA._assistants, name) then
-                    local index = table.posOf(TWA._assistants, name)
+                elseif TWA.tableContains(TWA._assistants, name) then
+                    local index = TWA.tablePosOf(TWA._assistants, name)
                     if index ~= nil then
                         table.remove(TWA._assistants, index)
                     end
@@ -1077,7 +1058,7 @@ function TWA.fillRaidData()
     -- roster list (see TWA.roster)
     for class, names in pairs(TWA.GetCompleteRoster()) do
         for _, name in pairs(names) do
-            if not table.contains(TWA.raid[class], name) then
+            if not TWA.tableContains(TWA.raid[class], name) then
                 table.insert(TWA.raid[class], name)
             end
             table.sort(TWA.raid[class])
@@ -1276,196 +1257,7 @@ function TWA.handleQHSync(pre, t, ch, sender)
     end
 end
 
-TWA.rows = {}
-TWA.cells = {}
-
-function TWA.changeCell(xy, to, dontOpenDropdown)
-    dontOpenDropdown = dontOpenDropdown and 1 or 0
-
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "ChangeCell=" .. xy .. "=" .. to .. "=" .. dontOpenDropdown, "RAID")
-
-    local x = math.floor(xy / 100)
-    local y = xy - x * 100
-    CloseDropDownMenus()
-end
-
-function TWA.change(xy, to, sender, dontOpenDropdown)
-    local x = math.floor(xy / 100)
-    local y = xy - x * 100
-
-    if to ~= 'Clear' then
-        TWA.data[x][y] = to
-    else
-        TWA.data[x][y] = '-'
-    end
-
-    TWA.PopulateTWA()
-end
-
-function TWA.PopulateTWA()
-    twadebug('PopulateTWA')
-
-    for i = 1, 25 do
-        if TWA.rows[i] then
-            if TWA.rows[i]:IsVisible() then
-                TWA.rows[i]:Hide()
-            end
-        end
-    end
-
-    for index, data in next, TWA.data do
-        if not TWA.rows[index] then
-            TWA.rows[index] = CreateFrame('Frame', 'TWRow' .. index, getglobal("TWA_Main"), 'TWRow')
-        end
-
-        TWA.rows[index]:Show()
-
-        TWA.rows[index]:SetBackdropColor(0, 0, 0, .2);
-
-        TWA.rows[index]:SetPoint("TOP", getglobal("TWA_Main"), "TOP", 0, -25 - index * 21)
-        if not TWA.cells[index] then
-            TWA.cells[index] = {}
-        end
-
-        getglobal('TWRow' .. index .. 'CloseRow'):SetID(index)
-
-        local line = ''
-
-        for i, name in data do
-            if not TWA.cells[index][i] then
-                TWA.cells[index][i] = CreateFrame('Frame', 'TWCell' .. index .. i, TWA.rows[index], 'TWCell')
-            end
-
-            TWA.cells[index][i]:SetPoint("LEFT", TWA.rows[index], "LEFT", -82 + i * 82, 0)
-
-            getglobal('TWCell' .. index .. i .. 'Button'):SetID((index * 100) + i)
-
-            local color = TWA.classColors['priest'].c
-            TWA.cells[index][i]:SetBackdropColor(.2, .2, .2, .7);
-            if i > 1 then
-                for c, n in next, TWA.raid do
-                    for _, raidMember in next, n do
-                        if raidMember == name then
-                            color = TWA.classColors[c].c
-                            local r = TWA.classColors[c].r
-                            local g = TWA.classColors[c].g
-                            local b = TWA.classColors[c].b
-                            TWA.cells[index][i]:SetBackdropColor(r, g, b, .7);
-                            break
-                        end
-                    end
-                end
-            end
-
-
-            if TWA.marks[name] then
-                color = TWA.marks[name]
-            end
-            if TWA.sides[name] then
-                color = TWA.sides[name]
-            end
-            if TWA.coords[name] then
-                color = TWA.coords[name]
-            end
-            if TWA.misc[name] then
-                color = TWA.misc[name]
-            end
-            if TWA.groups[name] then
-                color = TWA.groups[name]
-            end
-
-            if name == '-' then
-                name = ''
-            end
-
-            if i > 1 and name ~= '' and TWA.isPlayerOffline(name) then
-                color = '|cffff0000'
-            end
-
-            getglobal('TWCell' .. index .. i .. 'Text'):SetText(color .. name)
-
-            getglobal('TWCell' .. index .. i .. 'Icon'):Hide()
-            getglobal('TWCell' .. index .. i .. 'Icon'):SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons");
-
-            if name == 'Skull' then
-                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.75, 1, 0.25, 0.5)
-                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
-            end
-            if name == 'Cross' then
-                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.5, 0.75, 0.25, 0.5)
-                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
-            end
-            if name == 'Square' then
-                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.25, 0.5, 0.25, 0.5)
-                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
-            end
-            if name == 'Moon' then
-                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0, 0.25, 0.25, 0.5)
-                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
-            end
-            if name == 'Triangle' then
-                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.75, 1, 0, 0.25)
-                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
-            end
-            if name == 'Diamond' then
-                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.5, 0.75, 0, 0.25)
-                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
-            end
-            if name == 'Circle' then
-                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.25, 0.5, 0, 0.25)
-                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
-            end
-            if name == 'Star' then
-                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0, 0.25, 0, 0.25)
-                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
-            end
-
-            line = line .. name .. '-'
-        end
-    end
-
-    getglobal('TWA_Main'):SetHeight(50 + table.getn(TWA.data) * 21)
-    TWA_DATA = TWA.data
-end
-
-function Buttoane_OnEnter(id)
-    local index = math.floor(id / 100)
-
-    if id < 100 then
-        index = id
-    end
-
-    getglobal('TWRow' .. index):SetBackdropColor(1, 1, 1, .2)
-end
-
-function Buttoane_OnLeave(id)
-    local index = math.floor(id / 100)
-
-    if id < 100 then
-        index = id
-    end
-
-    getglobal('TWRow' .. index):SetBackdropColor(0, 0, 0, .2)
-end
-
-function TWAHandleRosterEditBox(editBox)
-    local scrollBar = getglobal(editBox:GetParent():GetName() .. "ScrollBar")
-    editBox:GetParent():UpdateScrollChildRect();
-
-    local _, max = scrollBar:GetMinMaxValues();
-    scrollBar.prevMaxValue = scrollBar.prevMaxValue or max
-
-    if math.abs(scrollBar.prevMaxValue - scrollBar:GetValue()) <= 1 then
-        -- if scroll is down and add new line then move scroll
-        scrollBar:SetValue(max);
-    end
-    if max ~= scrollBar.prevMaxValue then
-        -- save max value
-        scrollBar.prevMaxValue = max
-    end
-end
-
-function buildTargetsDropdown()
+function TWA.buildTargetsDropdown()
     if UIDROPDOWNMENU_MENU_LEVEL == 1 then
         local Title = {}
         Title.text = "Target"
@@ -1729,7 +1521,7 @@ function buildTargetsDropdown()
     end
 end
 
-function buildTanksDropdown()
+function TWA.buildTanksDropdown()
     if UIDROPDOWNMENU_MENU_LEVEL == 1 then
         local Title = {}
         Title.text = "Tanks"
@@ -1871,7 +1663,7 @@ function buildTanksDropdown()
     end
 end
 
-function buildHealersDropdown()
+function TWA.buildHealersDropdown()
     if UIDROPDOWNMENU_MENU_LEVEL == 1 then
         local Healers = {}
         Healers.text = "Healers"
@@ -1954,6 +1746,195 @@ function buildHealersDropdown()
     end
 end
 
+TWA.rows = {}
+TWA.cells = {}
+
+function TWA.changeCell(xy, to, dontOpenDropdown)
+    dontOpenDropdown = dontOpenDropdown and 1 or 0
+
+    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "ChangeCell=" .. xy .. "=" .. to .. "=" .. dontOpenDropdown, "RAID")
+
+    local x = math.floor(xy / 100)
+    local y = xy - x * 100
+    CloseDropDownMenus()
+end
+
+function TWA.change(xy, to, sender, dontOpenDropdown)
+    local x = math.floor(xy / 100)
+    local y = xy - x * 100
+
+    if to ~= 'Clear' then
+        TWA.data[x][y] = to
+    else
+        TWA.data[x][y] = '-'
+    end
+
+    TWA.PopulateTWA()
+end
+
+function TWA.PopulateTWA()
+    twadebug('PopulateTWA')
+
+    for i = 1, 25 do
+        if TWA.rows[i] then
+            if TWA.rows[i]:IsVisible() then
+                TWA.rows[i]:Hide()
+            end
+        end
+    end
+
+    for index, data in next, TWA.data do
+        if not TWA.rows[index] then
+            TWA.rows[index] = CreateFrame('Frame', 'TWRow' .. index, getglobal("TWA_Main"), 'TWRow')
+        end
+
+        TWA.rows[index]:Show()
+
+        TWA.rows[index]:SetBackdropColor(0, 0, 0, .2);
+
+        TWA.rows[index]:SetPoint("TOP", getglobal("TWA_Main"), "TOP", 0, -25 - index * 21)
+        if not TWA.cells[index] then
+            TWA.cells[index] = {}
+        end
+
+        getglobal('TWRow' .. index .. 'CloseRow'):SetID(index)
+
+        local line = ''
+
+        for i, name in data do
+            if not TWA.cells[index][i] then
+                TWA.cells[index][i] = CreateFrame('Frame', 'TWCell' .. index .. i, TWA.rows[index], 'TWCell')
+            end
+
+            TWA.cells[index][i]:SetPoint("LEFT", TWA.rows[index], "LEFT", -82 + i * 82, 0)
+
+            getglobal('TWCell' .. index .. i .. 'Button'):SetID((index * 100) + i)
+
+            local color = TWA.classColors['priest'].c
+            TWA.cells[index][i]:SetBackdropColor(.2, .2, .2, .7);
+            if i > 1 then
+                for c, n in next, TWA.raid do
+                    for _, raidMember in next, n do
+                        if raidMember == name then
+                            color = TWA.classColors[c].c
+                            local r = TWA.classColors[c].r
+                            local g = TWA.classColors[c].g
+                            local b = TWA.classColors[c].b
+                            TWA.cells[index][i]:SetBackdropColor(r, g, b, .7);
+                            break
+                        end
+                    end
+                end
+            end
+
+
+            if TWA.marks[name] then
+                color = TWA.marks[name]
+            end
+            if TWA.sides[name] then
+                color = TWA.sides[name]
+            end
+            if TWA.coords[name] then
+                color = TWA.coords[name]
+            end
+            if TWA.misc[name] then
+                color = TWA.misc[name]
+            end
+            if TWA.groups[name] then
+                color = TWA.groups[name]
+            end
+
+            if name == '-' then
+                name = ''
+            end
+
+            if i > 1 and name ~= '' and TWA.isPlayerOffline(name) then
+                color = '|cffff0000'
+            end
+
+            getglobal('TWCell' .. index .. i .. 'Text'):SetText(color .. name)
+
+            getglobal('TWCell' .. index .. i .. 'Icon'):Hide()
+            getglobal('TWCell' .. index .. i .. 'Icon'):SetTexture("Interface\\TargetingFrame\\UI-RaidTargetingIcons");
+
+            if name == 'Skull' then
+                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.75, 1, 0.25, 0.5)
+                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
+            end
+            if name == 'Cross' then
+                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.5, 0.75, 0.25, 0.5)
+                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
+            end
+            if name == 'Square' then
+                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.25, 0.5, 0.25, 0.5)
+                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
+            end
+            if name == 'Moon' then
+                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0, 0.25, 0.25, 0.5)
+                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
+            end
+            if name == 'Triangle' then
+                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.75, 1, 0, 0.25)
+                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
+            end
+            if name == 'Diamond' then
+                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.5, 0.75, 0, 0.25)
+                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
+            end
+            if name == 'Circle' then
+                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0.25, 0.5, 0, 0.25)
+                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
+            end
+            if name == 'Star' then
+                getglobal('TWCell' .. index .. i .. 'Icon'):SetTexCoord(0, 0.25, 0, 0.25)
+                getglobal('TWCell' .. index .. i .. 'Icon'):Show()
+            end
+
+            line = line .. name .. '-'
+        end
+    end
+
+    getglobal('TWA_Main'):SetHeight(50 + table.getn(TWA.data) * 21)
+    TWA_DATA = TWA.data
+end
+
+function Buttoane_OnEnter(id)
+    local index = math.floor(id / 100)
+
+    if id < 100 then
+        index = id
+    end
+
+    getglobal('TWRow' .. index):SetBackdropColor(1, 1, 1, .2)
+end
+
+function Buttoane_OnLeave(id)
+    local index = math.floor(id / 100)
+
+    if id < 100 then
+        index = id
+    end
+
+    getglobal('TWRow' .. index):SetBackdropColor(0, 0, 0, .2)
+end
+
+function TWAHandleRosterEditBox(editBox)
+    local scrollBar = getglobal(editBox:GetParent():GetName() .. "ScrollBar")
+    editBox:GetParent():UpdateScrollChildRect();
+
+    local _, max = scrollBar:GetMinMaxValues();
+    scrollBar.prevMaxValue = scrollBar.prevMaxValue or max
+
+    if math.abs(scrollBar.prevMaxValue - scrollBar:GetValue()) <= 1 then
+        -- if scroll is down and add new line then move scroll
+        scrollBar:SetValue(max);
+    end
+    if max ~= scrollBar.prevMaxValue then
+        -- save max value
+        scrollBar.prevMaxValue = max
+    end
+end
+
 TWA.currentRow = 0
 TWA.currentCell = 0
 
@@ -1964,19 +1945,19 @@ function TWCell_OnClick(id)
 
     --targets
     if TWA.currentCell == 1 then
-        UIDropDownMenu_Initialize(TWATargetsDropDown, buildTargetsDropdown, "MENU");
+        UIDropDownMenu_Initialize(TWATargetsDropDown, TWA.buildTargetsDropdown, "MENU");
         ToggleDropDownMenu(1, nil, TWATargetsDropDown, "cursor", 2, 3);
     end
 
     --tanks
     if TWA.currentCell == 2 or TWA.currentCell == 3 or TWA.currentCell == 4 then
-        UIDropDownMenu_Initialize(TWATanksDropDown, buildTanksDropdown, "MENU");
+        UIDropDownMenu_Initialize(TWATanksDropDown, TWA.buildTanksDropdown, "MENU");
         ToggleDropDownMenu(1, nil, TWATanksDropDown, "cursor", 2, 3);
     end
 
     --healers
     if TWA.currentCell == 5 or TWA.currentCell == 6 or TWA.currentCell == 7 then
-        UIDropDownMenu_Initialize(TWAHealersDropDown, buildHealersDropdown, "MENU");
+        UIDropDownMenu_Initialize(TWAHealersDropDown, TWA.buildHealersDropdown, "MENU");
         ToggleDropDownMenu(1, nil, TWAHealersDropDown, "cursor", 2, 3);
     end
 
@@ -2521,7 +2502,6 @@ function SyncBW_OnClick()
     end
     ChatThrottleLib:SendAddonMessage("ALERT", "TWABW", "BWSynch=end", "RAID")
 end
-
 
 ---@param delimiter string
 ---@return table<integer, string>

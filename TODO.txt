@@ -4,7 +4,5 @@ leader and assistants all share roster while in raid
   - remove all foreign roster entries when you leave group
   - broadcast add/remove single entries when you changes your roster
 
-
-
 implement a cooldown/debounce for full syncs for like 5 seconds (to reduce traffic while doing a lot of invites)
   - you can pass a callback to SendAddonMessage to know when a sync completes. If more requests came in during last sync, sync again
