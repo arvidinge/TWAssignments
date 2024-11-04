@@ -41,8 +41,9 @@ TWA:RegisterEvent("CHAT_MSG_WHISPER")
 TWA:RegisterEvent("PARTY_MEMBERS_CHANGED")
 
 TWA.data = {}
----@type boolean|nil
-TWA._leaderOnline = nil
+
+---@type boolean
+TWA._leaderOnline = false
 
 ---All conditions must be satisfied to make changes:
 ---1. The player is in a raid group
@@ -513,9 +514,11 @@ function TWA.InRaid()
     return GetNumRaidMembers() > 0
 end
 
+TWA._firstSyncComplete = false;
 ---As a non-leader, request full sync of data (when you join the group for example)
 function TWA.RequestSync()
     twadebug('i request sync')
+    twaprint('Requesting full sync of data from raid leader...')
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RequestSync=" .. me, "RAID")
 end
 
@@ -552,18 +555,51 @@ function TWA.BroadcastCompleteRoster()
     end
 end
 
----Call whenever the player adds a player to their roster. 
+---Call whenever the player adds a player to their roster.
 ---Only works in raid and if you are either assistant or leader. (noop otherwise)
 ---@param class string
 ---@param name string
 function TWA.BroadcastNewRosterName(class, name)
-
+    if not IsRaidOfficer() or not IsRaidLeader() then return end
+    twadebug('nyi: BroadcastNewRosterName ' .. class .. ' ' .. name)
+    -- nyi
 end
 
 ---Call whenever the player is made assistant or leader to share their complete roster.
 ---Only works in raid and if you are either assistant or leader. (noop otherwise)
 function TWA.BroadcastMyRoster()
-    
+    local roster = TWA.roster;
+    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RosterBroadcast=start", "RAID")
+
+    ---@param class string
+    ---@param names table<integer, string>
+    local sendNames = function(class, names)
+        local namesSerialized = ''
+        for _, name in ipairs(names) do
+            if string.len(namesSerialized) > 0 then
+                namesSerialized = namesSerialized .. ',' .. name
+            else
+                namesSerialized = name
+            end
+        end
+        ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RosterBroadcast=" .. class .. "=" .. namesSerialized, "RAID")
+    end
+
+    for class, _ in pairs(roster) do
+        if table.getn(roster[class]) > 0 then
+            local curNames = {}
+            for _, name in pairs(roster[class]) do
+                table.insert(curNames, name)
+                if table.getn(curNames) >= MAX_NAMES_PER_MESSAGE then
+                    sendNames(class, curNames)
+                    curNames = {}
+                end
+            end
+            sendNames(class, curNames)
+        end
+    end
+
+    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RosterBroadcast=end", "RAID")
 end
 
 ---As a leader, broadcast a full sync of data (when a player requests it, or the group is converted from party to raid).
@@ -599,8 +635,6 @@ TWA.InitializeGroupState = function()
     if TWA._playerGroupState == 'raid' and IsRaidLeader() then
         TWA.BroadcastSync() -- overwrite any changes made by assistants while you were offline
     end
-    -- twadebug('  InitializeGroupState: TWA._playerGroupState is ' .. TWA._playerGroupState)
-    -- twadebug('  InitializeGroupState: IsRaidLeader() is ' .. tostring(IsRaidLeader() == 1))
 end
 
 ---Updates the player's group state, and runs appropriate side effects on changes (for example, request sync if logging in while in raid)
@@ -650,6 +684,7 @@ function TWA.PlayerGroupStateUpdate()
         end
     elseif (TWA._playerGroupState == 'party' or TWA._playerGroupState == 'raid') and not TWA.InParty() then
         -- left the group
+        TWA.otherPeoplesRosters = {}
         setGroupState('alone')
     elseif TWA._playerGroupState == 'party' and TWA.InRaid() then
         -- party was converted to raid
@@ -781,7 +816,7 @@ TWA:SetScript("OnEvent", function()
         end
 
         TWA.PlayerGroupStateUpdate()
-        TWA.updateRaidData()
+        TWA.fillRaidData()
         TWA.PopulateTWA()
         tinsert(UISpecialFrames, "TWA_Main") --makes window close with Esc key
         tinsert(UISpecialFrames, "TWA_RosterManager")
@@ -794,7 +829,7 @@ TWA:SetScript("OnEvent", function()
             TWA.partyAndRaidCombinedEventTimeoutId = nil
         end
         TWA.PlayerGroupStateUpdate()
-        TWA.updateRaidData()
+        TWA.fillRaidData()
         TWA.PopulateTWA()
     end
 
@@ -871,11 +906,21 @@ function TWA.markOrPlayerUsed(markOrPlayer)
     return false
 end
 
+---Find the position of a value in a simple list.
+---The table should be a sequential list of comparable values (e.g., numbers or strings).
+---@param tbl table<integer, any> -- Sequential list to search.
+---@param value any -- Value to search for in the list.
+---@return integer|nil -- Index of the value if found, otherwise nil.
+table.posOf = function(tbl, value)
+    for i, val in ipairs(tbl) do
+        if val == value then return i end
+    end
+    return nil
+end
+
 table.contains = function(tbl, value)
     for i = 1, table.getn(tbl) do
-        if (tbl[i] == value) then
-            return true
-        end
+        if (tbl[i] == value) then return true end
     end
     return false
 end
@@ -897,8 +942,117 @@ function TWA.OnLeaderOnlineUpdate(prev, new)
     end
 end
 
-function TWA.updateRaidData()
+TWA._raidStateInitialized = false;
+---@type string|nil
+TWA._leader = nil
+---@type table<integer, string>
+TWA._assistants = {}
+
+---Call when a player was promoted to raid leader or assist.
+---They should broadcast their roster.
+---@param name string
+function TWA.PlayerWasPromoted(name)
+    if TWA._raidStateInitialized then
+        twadebug('player was promoted: ' .. name)
+        if name == me then TWA.BroadcastMyRoster() end
+    end
+end
+
+---Call when a player is either
+---* No longer has either lead or assist role
+---* Is removed from the group
+---Their roster entries should be dropped.
+---@param name string
+function TWA.PlayerWasDemoted(name)
+    TWA.otherPeoplesRosters[name] = nil
+    twadebug('player was demoted: ' .. name)
+end
+
+function TWA.CheckIfPromoted(name, newRank)
+    if newRank == 2 then
+        if TWA._leader ~= name then
+            TWA.PlayerWasPromoted(name)
+        end
+    elseif newRank == 1 then
+        if not table.contains(TWA._assistants, name) then
+            TWA.PlayerWasPromoted(name)
+        end
+    else
+        -- wtf?
+    end
+end
+
+function TWA.CheckIfDemoted(name) -- new rank is always "normal" (neither officer nor leader)
+    if TWA._leader == name or table.contains(TWA._assistants, name) then
+        TWA.PlayerWasDemoted(name)
+    end
+end
+
+function TWA.updateRaidStatus()
+    local oldLeader = TWA._leader;
+    local newLeader = nil;
+    ---@type table<string, integer>
+    local nameCache = {}
+
+    for i = 0, GetNumRaidMembers() do
+        if GetRaidRosterInfo(i) then
+            local name, rank, _, _, _, _, z = GetRaidRosterInfo(i);
+            local _, unitClass = UnitClass('raid' .. i)
+            unitClass = string.lower(unitClass)
+            nameCache[name] = i
+
+            if rank == 2 then -- leader
+                TWA.CheckIfPromoted(name, rank)
+                newLeader = name
+                local prevState = TWA._leaderOnline
+                if z == "Offline" then
+                    TWA._leaderOnline = false
+                else
+                    TWA._leaderOnline = true
+                end
+                TWA.OnLeaderOnlineUpdate(prevState, TWA._leaderOnline)
+            elseif rank == 1 then -- assist
+                TWA.CheckIfPromoted(name, rank)
+                if not table.contains(TWA._assistants, name) then
+                    table.insert(TWA._assistants, name)
+                end
+            else
+                TWA.CheckIfDemoted(name)
+                if TWA._leader == name then
+                    TWA._leader = nil
+                elseif table.contains(TWA._assistants, name) then
+                    local index = table.posOf(TWA._assistants, name)
+                    if index ~= nil then
+                        table.remove(TWA._assistants, index)
+                    end
+                end
+            end
+        end
+    end
+
+    TWA._leader = newLeader;
+
+    -- check all current assists and leader if they have left the group
+    if oldLeader ~= nil and nameCache[oldLeader] == nil then
+        twadebug('leader left the raid: ' .. oldLeader)
+        TWA.otherPeoplesRosters[oldLeader] = nil
+    end
+
+    for _, name in ipairs(TWA._assistants) do
+        if nameCache[name] == nil then
+            twadebug('assistant left the raid: ' .. oldLeader)
+            TWA.otherPeoplesRosters[name] = nil
+        end
+    end
+
+    TWA._raidStateInitialized = true
+end
+
+function TWA.fillRaidData()
     twadebug('fill raid data')
+
+    TWA.updateRaidStatus()
+
     TWA.raid = {
         ['warrior'] = {},
         ['paladin'] = {},
@@ -913,20 +1067,11 @@ function TWA.updateRaidData()
     -- current raid members
     for i = 0, GetNumRaidMembers() do
         if GetRaidRosterInfo(i) then
-            local name, rank, _, _, _, _, z = GetRaidRosterInfo(i);
+            local name, _, _, _, _, _, z = GetRaidRosterInfo(i);
             local _, unitClass = UnitClass('raid' .. i)
             unitClass = string.lower(unitClass)
             table.insert(TWA.raid[unitClass], name)
             table.sort(TWA.raid[unitClass])
-            if rank == 2 then
-                local prevState = TWA._leaderOnline
-                if z == "Offline" then
-                    TWA._leaderOnline = false
-                else
-                    TWA._leaderOnline = true
-                end
-                TWA.OnLeaderOnlineUpdate(prevState, TWA._leaderOnline)
-            end
         end
     end
     -- roster list (see TWA.roster)
@@ -996,10 +1141,6 @@ function TWA.addUniqueToRoster(rosterOwner, class, player)
 end
 
 function TWA.handleSync(_, t, _, sender)
-    if string.find(t, 'Peep=', 1, true) then
-        TWA.HandlePeep()
-    end
-
     if string.find(t, 'LoadTemplate=', 1, true) then
         local tempEx = string.split(t, '=')
         if not tempEx[2] then
@@ -1019,13 +1160,16 @@ function TWA.handleSync(_, t, _, sender)
         if sEx[2] == 'start' then
             TWA.data = {}
         elseif sEx[2] == 'end' then
-            TWA.updateRaidData()
+            TWA.fillRaidData()
             TWA.PopulateTWA()
+            if not TWA._firstSyncComplete then
+                twaprint('Full sync complete')
+                TWA._firstSyncComplete = true
+            end
         elseif sEx[2] == '#roster' then
             local class = sEx[3]
             local names = string.split(sEx[4], ',')
             for _, name in ipairs(names) do
-                twadebug('    '..name)
                 TWA.addUniqueToRoster(sender, class, name)
             end
         else
@@ -1042,6 +1186,24 @@ function TWA.handleSync(_, t, _, sender)
             end
         end
         return true
+    end
+
+    if string.find(t, 'RosterBroadcast=', 1, true) and sender ~= me then
+        local sEx = string.split(t, '=')
+        if sEx[2] == 'start' then
+            -- add to list of incoming broadcasts
+        elseif sEx[2] == 'end' then
+            -- remove from list of incoming broadcasts
+            -- if list empty, run the following stuff:
+            TWA.fillRaidData()
+            TWA.PopulateTWA()
+        else
+            local class = sEx[2]
+            local names = string.split(sEx[3], ',')
+            for _, name in ipairs(names) do
+                TWA.addUniqueToRoster(sender, class, name)
+            end
+        end
     end
 
     if string.find(t, 'RemRow=', 1, true) then
@@ -2360,6 +2522,9 @@ function SyncBW_OnClick()
     ChatThrottleLib:SendAddonMessage("ALERT", "TWABW", "BWSynch=end", "RAID")
 end
 
+
+---@param delimiter string
+---@return table<integer, string>
 function string:split(delimiter)
     local result = {}
     local from = 1
