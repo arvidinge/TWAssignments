@@ -242,11 +242,6 @@
                                 <AbsInset left="5" right="5" top="5" bottom="5"/>
                             </BackgroundInsets>
                         </Backdrop>
-                        <Scripts>
-                            <OnLoad>
-                                SuperMacroSetDefaultTooltipColor(this)
-                            </OnLoad>
-                        </Scripts>
                     </Frame>
                     <Button name="$parentDone" inherits="UIPanelButtonTemplate2" text="Done">
                         <Size>
