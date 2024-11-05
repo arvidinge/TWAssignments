@@ -1,3 +1,16 @@
+bugs:
+* full sync needs to broadcast which template to use
+  - the frame did not expand to contain all the cells if template was changed while window is closed
+* moving to empty group causes state to go from raid to alone
+  - should just treat the events as one always (if party and raid event within 0.2 seconds). 
+* verkar inte byta template förrän load knapp?
+* doesnt recognize leader does not have twa
+  - pick syncmaster from dropdown?
+* assistant left the raid säger cozzalisa om och om igen
+
+features:
+* roster account/character profiles?
+
 leader and assistants all share roster while in raid
   - what to do on duplicate name but different class? just add both entries in first version
   - remove foreign roster entries when assistants leave group (implemented but not tested)
