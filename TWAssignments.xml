@@ -241,6 +241,7 @@
                             <BackgroundInsets>
                                 <AbsInset left="5" right="5" top="5" bottom="5"/>
                             </BackgroundInsets>
+                            <Color r="0" g="0" b="1" a="0.2"/>
                         </Backdrop>
                     </Frame>
                     <Button name="$parentDone" inherits="UIPanelButtonTemplate2" text="Done">
