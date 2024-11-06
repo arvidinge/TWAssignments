@@ -1,12 +1,11 @@
 bugs:
 * full sync needs to broadcast which template to use
   - the frame did not expand to contain all the cells if template was changed while window is closed
-* moving to empty group causes state to go from raid to alone
-  - should just treat the events as one always (if party and raid event within 0.2 seconds). 
 * verkar inte byta template förrän load knapp?
 * doesnt recognize leader does not have twa
   - pick syncmaster from dropdown?
-* assistant left the raid säger cozzalisa om och om igen
+* assistant left the raid says same person all the time after moving people around
+  - seems the moving people fucks it up
 
 features:
 * roster account/character profiles?

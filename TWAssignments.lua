@@ -506,7 +506,7 @@ TWA.groups = {
 
 ---@return boolean
 function TWA.InParty()
-    return GetNumPartyMembers() > 0
+    return UnitInParty("player") == 1
 end
 
 ---@return boolean
@@ -836,7 +836,9 @@ TWA:SetScript("OnEvent", function()
 
     if event == "PARTY_MEMBERS_CHANGED" then
         twadebug("PARTY_MEMBERS_CHANGED")
-        TWA.partyAndRaidCombinedEventTimeoutId = TWA.setTimeout(TWA.PlayerGroupStateUpdate, DOUBLE_EVENT_TIMEOUT)
+        TWA.partyAndRaidCombinedEventTimeoutId = TWA.setTimeout(function()
+            TWA.PlayerGroupStateUpdate()
+        end, DOUBLE_EVENT_TIMEOUT)
     end
 
     if event == 'CHAT_MSG_ADDON' and arg1 == "TWA" then
