@@ -6,6 +6,7 @@ bugs:
   - pick syncmaster from dropdown?
 * assistant left the raid says same person all the time after moving people around
   - seems the moving people fucks it up
+* reloading loses foreign roster
 
 features:
 * roster account/character profiles?

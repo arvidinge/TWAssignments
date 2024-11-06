@@ -514,6 +514,13 @@ function TWA.InRaid()
     return GetNumRaidMembers() > 0
 end
 
+---When the leader logs in while in raid they need to request the other people's rosters again
+---TODO: some sort of caching? request specific people you don't have? 
+---hash officer's rosters and broadcast hashes, and if mismatch then officers broadcast their roster?
+function TWA.RequestRosters()
+
+end
+
 TWA._firstSyncComplete = false;
 ---As a non-leader, request full sync of data (when you join the group for example)
 function TWA.RequestSync()
@@ -635,6 +642,7 @@ TWA.InitializeGroupState = function()
 
     if TWA._playerGroupState == 'raid' and IsRaidLeader() then
         TWA.BroadcastSync() -- overwrite any changes made by assistants while you were offline
+        TWA.RequestRosters() -- request peoples rosters (todo: cache them instead)
     end
 end
 
@@ -953,16 +961,10 @@ function TWA.PlayerWasDemoted(name)
 end
 
 function TWA.CheckIfPromoted(name, newRank)
-    if newRank == 2 then
-        if TWA._leader ~= name then
+    if newRank > 0 then
+        if not (TWA.tableContains(TWA._assistants, name) or TWA._leader == name) then
             TWA.PlayerWasPromoted(name)
         end
-    elseif newRank == 1 then
-        if not TWA.tableContains(TWA._assistants, name) then
-            TWA.PlayerWasPromoted(name)
-        end
-    else
-        -- wtf?
     end
 end
 
@@ -978,7 +980,7 @@ function TWA.updateRaidStatus()
     ---@type table<string, integer>
     local nameCache = {}
 
-    for i = 0, GetNumRaidMembers() do
+    for i = 1, GetNumRaidMembers() do
         if GetRaidRosterInfo(i) then
             local name, rank, _, _, _, _, z = GetRaidRosterInfo(i);
             local _, unitClass = UnitClass('raid' .. i)
@@ -1011,6 +1013,8 @@ function TWA.updateRaidStatus()
                     end
                 end
             end
+        else
+            twadebug('GetRaidRosterInfo('..i..') returned nothing')
         end
     end
 
