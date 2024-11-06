@@ -1,9 +1,3 @@
--- Constants
-local ROSTERFRAME_CLASSSECTION_BASE_HEIGHT = 30;
-local ROSTERFRAME_CLASSSECTION_ENTRY_HEIGHT = 15;
-local ROSTERFRAME_CLASSSECTION_EXPANDMARGIN = 6;
-local SORTED_CLASS_NAMES = { 'druid', 'hunter', 'mage', 'paladin', 'priest', 'rogue', 'shaman', 'warlock', 'warrior' }
-
 local function strCapitalize(str)
   return string.upper(string.sub(str, 1, 1)) .. string.lower(string.sub(str, 2))
 end
@@ -121,7 +115,7 @@ function TWAClassSection:_buildNameFrame(name, class)
   local frame = CreateFrame("Frame", "TWA_RosterEntry" .. name, parent)
   frame:Hide()
   frame:SetPoint('Right', parent, 'Right', 0, 0)
-  frame:SetHeight(ROSTERFRAME_CLASSSECTION_ENTRY_HEIGHT)
+  frame:SetHeight(TWA.ROSTERFRAME_CLASSSECTION_ENTRY_HEIGHT)
   frame:SetWidth(parent:GetWidth() - 7)
   frame:EnableMouse(true);
 
@@ -153,7 +147,7 @@ function TWAClassSection:_buildNameFrame(name, class)
   removeButton:SetScript("OnClick", function()
     if CloseDropDownMenus then CloseDropDownMenus() end
     local classRoster = TWA.roster[self.class];
-    local indexToDelete = TWA.tablePosOf(classRoster, name)
+    local indexToDelete = TWA.util.tablePosOf(classRoster, name)
     if indexToDelete ~= nil then
       table.remove(classRoster, indexToDelete);
       TWA.BroadcastRosterEntryDeleted(self.class, name)
@@ -184,14 +178,14 @@ function TWAClassSection:Expand()
     end
 
     frame:SetPoint("TopRight", self.frame, "TopRight", 0,
-      -ROSTERFRAME_CLASSSECTION_BASE_HEIGHT - (i - 1) * ROSTERFRAME_CLASSSECTION_ENTRY_HEIGHT)
+      -TWA.ROSTERFRAME_CLASSSECTION_BASE_HEIGHT - (i - 1) * TWA.ROSTERFRAME_CLASSSECTION_ENTRY_HEIGHT)
     frame:Show();
   end
 
   self.frame:SetHeight(
-    ROSTERFRAME_CLASSSECTION_BASE_HEIGHT +
-    table.getn(names) * ROSTERFRAME_CLASSSECTION_ENTRY_HEIGHT +
-    ROSTERFRAME_CLASSSECTION_EXPANDMARGIN)
+    TWA.ROSTERFRAME_CLASSSECTION_BASE_HEIGHT +
+    table.getn(names) * TWA.ROSTERFRAME_CLASSSECTION_ENTRY_HEIGHT +
+    TWA.ROSTERFRAME_CLASSSECTION_EXPANDMARGIN)
 
   self.expanded = true;
   self.expandButton:SetText("v");
@@ -202,7 +196,7 @@ function TWAClassSection:Collapse()
   for _, frame in pairs(self.frames) do
     frame:Hide()
   end
-  self.frame:SetHeight(ROSTERFRAME_CLASSSECTION_BASE_HEIGHT);
+  self.frame:SetHeight(TWA.ROSTERFRAME_CLASSSECTION_BASE_HEIGHT);
   self.expandButton:SetText(">");
   self.expanded = false;
 end
@@ -399,7 +393,7 @@ end
 
 local function CalcTopOfClassSection(class)
   local indexOfClass = 0;
-  for i, curClass in ipairs(SORTED_CLASS_NAMES) do
+  for i, curClass in ipairs(TWA.SORTED_CLASS_NAMES) do
     if curClass == class then
       indexOfClass = i;
       break;
@@ -408,7 +402,7 @@ local function CalcTopOfClassSection(class)
 
   local heightOfPrecedingSections = 0;
   for i = 1, indexOfClass - 1 do
-    heightOfPrecedingSections = heightOfPrecedingSections + ClassSections[SORTED_CLASS_NAMES[i]].frame:GetHeight()
+    heightOfPrecedingSections = heightOfPrecedingSections + ClassSections[TWA.SORTED_CLASS_NAMES[i]].frame:GetHeight()
   end
   return -heightOfPrecedingSections;
 end
@@ -416,10 +410,10 @@ end
 local function ResizeListAfter_aux(class)
   ClassSections[class].frame:SetPoint("TopLeft", RosterFrameContainer, "TopLeft", 0, CalcTopOfClassSection(class));
 
-  if class == SORTED_CLASS_NAMES[9] then return end
-  for i, name in ipairs(SORTED_CLASS_NAMES) do
+  if class == TWA.SORTED_CLASS_NAMES[9] then return end
+  for i, name in ipairs(TWA.SORTED_CLASS_NAMES) do
     if name == class then
-      ResizeListAfter_aux(SORTED_CLASS_NAMES[i + 1])
+      ResizeListAfter_aux(TWA.SORTED_CLASS_NAMES[i + 1])
     end
   end
 end
@@ -478,10 +472,10 @@ function TWA_BuildRosterFrame()
   RosterFrameScroll:SetScrollChild(RosterFrameContainer);
 
   local i = 1;
-  for _, class in ipairs(SORTED_CLASS_NAMES) do
+  for _, class in ipairs(TWA.SORTED_CLASS_NAMES) do
     local classSection = TWARoster_BuildClassSection(RosterFrameContainer, class);
     ClassSections[class] = classSection;
-    classSection.frame:SetPoint("TopLeft", RosterFrameContainer, "TopLeft", 0, -ROSTERFRAME_CLASSSECTION_BASE_HEIGHT * i)
+    classSection.frame:SetPoint("TopLeft", RosterFrameContainer, "TopLeft", 0, -TWA.ROSTERFRAME_CLASSSECTION_BASE_HEIGHT * i)
     classSection.frame:SetScript("OnSizeChanged", resizeCallbacks[class])
   end
 
@@ -503,7 +497,7 @@ function TWARoster_BuildClassSection(container, class)
   local classSectionFrame = CreateFrame("Frame", baseName, container)
   classSectionFrame:SetPoint("TopLeft", container, "TopLeft", 0, 0)
   -- classSectionFrame:SetPoint("TopRight", container, "TopRight", 0, 0)
-  classSectionFrame:SetHeight(ROSTERFRAME_CLASSSECTION_BASE_HEIGHT);
+  classSectionFrame:SetHeight(TWA.ROSTERFRAME_CLASSSECTION_BASE_HEIGHT);
   classSectionFrame:SetWidth(container:GetWidth())
   classSectionFrame:SetBackdrop(backdrop);
   classSectionFrame:SetBackdropColor(1, 1, 1, 0.05)
