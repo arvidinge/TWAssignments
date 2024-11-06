@@ -5,6 +5,7 @@
     <Script file="TWAUtil.lua" />
     <Script file="TWAConstants.lua" />
     <Script file="TWAState.lua" />
+    <Script file="TWATimeout.lua" />
     <Script file="TWAssignments.lua" />
     <Script file="TWRosterFrame.lua" />
 
@@ -356,7 +357,7 @@
         </Backdrop>
         <Layers>
             <Layer level="OVERLAY">
-                <FontString name="$parentText" inherits="GameFontNormal" text=" -- TARGET --"
+                <FontString name="$parentText" inherits="GameFontNormal" text=" TARGET"
                     hidden="false">
                     <Anchors>
                         <Anchor point="TOPLEFT">
@@ -367,7 +368,7 @@
                     </Anchors>
                 </FontString>
                 <FontString name="$parentText" inherits="GameFontNormal"
-                    text="| ---------------- TANKS ----------------- | " hidden="false">
+                    text="| TANKS" hidden="false">
                     <Anchors>
                         <Anchor point="TOPLEFT">
                             <Offset>
@@ -377,7 +378,7 @@
                     </Anchors>
                 </FontString>
                 <FontString name="$parentText" inherits="GameFontNormal"
-                    text=" ---------------- HEALERS --------------- |" hidden="false">
+                    text="| HEALERS" hidden="false">
                     <Anchors>
                         <Anchor point="TOPLEFT">
                             <Offset>

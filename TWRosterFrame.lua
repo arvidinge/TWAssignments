@@ -360,7 +360,7 @@ function TWA_AddPlayersDoneClick()
   local newRosterEntries = {
     [class] = newnames
   }
-  TWA.BroadcastRoster(newRosterEntries)
+  TWA.BroadcastRoster(newRosterEntries, false)
 
   addPlayers:SetText('')
   addPlayers.frame:Hide()

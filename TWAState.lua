@@ -30,7 +30,7 @@ TWA.roster = {
 }
 
 ---@type table<string, TWARoster>
-TWA.otherPeoplesRosters = {}
+TWA.foreignRosters = {}
 
 ---@type TWARoster
 TWA.raid = {

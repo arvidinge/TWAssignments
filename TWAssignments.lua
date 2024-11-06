@@ -28,6 +28,7 @@ function twadebug(a)
 end
 
 TWA:RegisterEvent("ADDON_LOADED")
+TWA:RegisterEvent("PLAYER_LOGIN")
 TWA:RegisterEvent("RAID_ROSTER_UPDATE")
 TWA:RegisterEvent("CHAT_MSG_ADDON")
 TWA:RegisterEvent("CHAT_MSG_WHISPER")
@@ -381,8 +382,8 @@ function TWA.GetCompleteRoster()
         addNamesToRoster(class, names)
     end
 
-    -- Merge TWA.otherPeoplesRosters into completeRoster
-    for _, otherRoster in pairs(TWA.otherPeoplesRosters) do
+    -- Merge TWA.foreignRosters into completeRoster
+    for _, otherRoster in pairs(TWA.foreignRosters) do
         for class, names in pairs(otherRoster) do
             addNamesToRoster(class, names)
         end
@@ -398,20 +399,25 @@ end
 
 ---@return boolean
 function TWA.InRaid()
-    return GetNumRaidMembers() > 0
+    return UnitInRaid("player") == 1
 end
 
----When the leader logs in or reloads while in raid they need to request the other people's rosters again
----TODO: some sort of caching? request specific people you don't have?
----hash officer's rosters and broadcast hashes, and if mismatch then officers broadcast their roster?
+--- Requests all assistant rosters in the raid by broadcasting hashes.
+---
+--- The function hashes the rosters of all current assistants and broadcasts the hashes
+--- to the raid. If an assistant receives an incorrect hash of their roster, they will
+--- broadcast their roster.
+---
+--- It also handles the case where rosters for certain assistants are missing by
+--- directly requesting their rosters.
 function TWA.RequestAllAssistantRosters()
-    if not (TWA.InRaid() and IsRaidLeader()) then return end
+    if not (TWA.InRaid()) then return end
 
     ---@type table<string, string>
     local hashes = {}
 
     -- hash all the rosters you currently have
-    for assistant, roster in pairs(TWA.otherPeoplesRosters) do
+    for assistant, roster in pairs(TWA.foreignRosters) do
         if roster ~= nil then
             hashes[assistant] = TWA.util.hashToHex(TWA.util.djb2_hash(TWA.SerializeRoster(roster)))
         end
@@ -426,7 +432,7 @@ function TWA.RequestAllAssistantRosters()
     for i = 1, GetNumRaidMembers() do
         if GetRaidRosterInfo(i) then
             local name, rank, _, _, _, _, z = GetRaidRosterInfo(i);
-            if rank == 1 or rank == 2 and hashes[name] == nil then
+            if name ~= me and (rank == 1 or rank == 2) and hashes[name] == nil then
                 ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RosterRequest=" .. name, "RAID")
             end
         end
@@ -464,44 +470,8 @@ end
 ---As a non-leader, request full sync of data (when you join the group for example)
 function TWA.RequestSync()
     twadebug('i request sync')
-    twaprint('Requesting full sync of data from raid leader...')
+    twaprint('Requesting full sync of data...')
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RequestSync=" .. me, "RAID")
-end
-
----Only call for leader, broadcast when full sync requested
----TODO: Remove this entirely and make everyone request rosters using hashes.
----The problem right now is if the leader leaves, all the roster entries goes away for the person that received this sync.
-function TWA.BroadcastCompleteRoster()
-    if not TWA.InRaid() and not (IsRaidLeader() or IsRaidOfficer()) then return end
-    local roster = TWA.GetCompleteRoster()
-
-    ---@param class string
-    ---@param names table<integer, string>
-    local sendNames = function(class, names)
-        local namesSerialized = ''
-        for _, name in ipairs(names) do
-            if string.len(namesSerialized) > 0 then
-                namesSerialized = namesSerialized .. ',' .. name
-            else
-                namesSerialized = name
-            end
-        end
-        ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=#roster=" .. class .. "=" .. namesSerialized, "RAID")
-    end
-
-    for class, _ in pairs(roster) do
-        if table.getn(roster[class]) > 0 then
-            local curNames = {}
-            for _, name in pairs(roster[class]) do
-                table.insert(curNames, name)
-                if table.getn(curNames) >= TWA.MAX_NAMES_PER_MESSAGE then
-                    sendNames(class, curNames)
-                    curNames = {}
-                end
-            end
-            sendNames(class, curNames)
-        end
-    end
 end
 
 ---Call to share that you've deleted a member of your roster.
@@ -515,10 +485,14 @@ end
 
 ---Call to share your roster with other players. You can pass partial rosters when adding new names to save on bandwidth.
 ---Only works in raid and if you are either assistant or leader. (noop otherwise)
----@param roster TWARoster
-function TWA.BroadcastRoster(roster)
+---@param roster TWARoster The roster to broadcast
+---@param full boolean Pass true if you're broadcasting your full roster (recipients will wipe your existing roster). False if partial roster (when adding single entries).
+function TWA.BroadcastRoster(roster, full)
+    if full == nil then error("Argument 'full' is required and cannot be nil", 2) end
     if not TWA.InRaid() and not (IsRaidLeader() or IsRaidOfficer()) then return end
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RosterBroadcast=start", "RAID")
+
+    local broadcasttype = 'RosterBroadcast' .. (full and 'Full' or 'Partial')
+    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", broadcasttype .. "=start", "RAID")
 
     ---@param class string
     ---@param names table<integer, string>
@@ -531,7 +505,7 @@ function TWA.BroadcastRoster(roster)
                 namesSerialized = name
             end
         end
-        ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RosterBroadcast=" .. class .. "=" .. namesSerialized, "RAID")
+        ChatThrottleLib:SendAddonMessage("ALERT", "TWA", broadcasttype .. "=" .. class .. "=" .. namesSerialized, "RAID")
     end
 
     for class, _ in pairs(roster) do
@@ -548,7 +522,7 @@ function TWA.BroadcastRoster(roster)
         end
     end
 
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RosterBroadcast=end", "RAID")
+    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", broadcasttype .. "=end", "RAID")
 end
 
 ---As a leader, broadcast a full sync of data (when a player requests it, or the group is converted from party to raid).
@@ -568,20 +542,42 @@ function TWA.BroadcastSync()
             data[7], "RAID")
     end
 
-    TWA.BroadcastCompleteRoster()
-
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=end", "RAID")
+end
+
+---Remove foreign roster entries from people who are neither an assistant nor leader of the raid
+function TWA.CleanUpForeignRoster()
+    local assistantCache = {} ---@type table<string, boolean>
+
+    -- Cache names of current assistants in the raid
+    for i = 1, GetNumRaidMembers() do
+        if GetRaidRosterInfo(i) then
+            local name, rank, _, _, _, _, z = GetRaidRosterInfo(i);
+            if rank == 1 or rank == 2 then
+                assistantCache[name] = true
+            end
+        end
+    end
+
+    -- Mark rosters for deletion if they don't match current assistants
+    local rostersToDelete = {} ---@type table<string, boolean>
+    for name, roster in pairs(TWA.foreignRosters) do
+        if not assistantCache[name] then
+            rostersToDelete[name] = true
+        end
+    end
+
+    -- Delete outdated rosters
+    for name, _ in pairs(rostersToDelete) do
+        TWA.foreignRosters[name] = nil
+    end
 end
 
 TWA.InitializeGroupState = function()
     if TWA._playerGroupStateInitialized then return end
     TWA._playerGroupStateInitialized = true;
+    TWA.CleanUpForeignRoster()
     TWA.PlayerGroupStateUpdate()
-
-    if TWA._playerGroupState == 'raid' and IsRaidLeader() then
-        TWA.BroadcastSync()              -- overwrite any changes made by assistants while you were offline
-        TWA.RequestAllAssistantRosters() -- request peoples rosters (todo: cache them instead)
-    end
 end
 
 ---Updates the player's group state, and runs appropriate side effects on changes (for example, request sync if logging in while in raid)
@@ -615,7 +611,12 @@ function TWA.PlayerGroupStateUpdate()
         if TWA.InRaid() then
             setGroupState('raid')
             -- logged in while in raid group
-            if not IsRaidLeader() then TWA.RequestSync() end
+            if IsRaidLeader() then
+                TWA.BroadcastSync() -- overwrite any changes made by assistants while you were offline
+            else
+                TWA.RequestSync()
+            end
+            TWA.RequestAllAssistantRosters()
         else
             twadebug('not in raid')
         end
@@ -627,105 +628,20 @@ function TWA.PlayerGroupStateUpdate()
             -- joined a raid
             setGroupState('raid')
             TWA.RequestSync()
+            TWA.RequestAllAssistantRosters()
         end
     elseif (TWA._playerGroupState == 'party' or TWA._playerGroupState == 'raid') and not TWA.InParty() then
         -- left the group
-        TWA.otherPeoplesRosters = {}
-        TWA.persistOtherPeoplesRosters()
+        TWA.foreignRosters = {}
+        TWA.persistForeignRosters()
         setGroupState('alone')
     elseif TWA._playerGroupState == 'party' and TWA.InRaid() then
         -- party was converted to raid
         setGroupState('raid')
-        if IsRaidLeader() then TWA.BroadcastSync() end
-    end
-end
-
----@type table<integer, TWATimeoutCallback>
-local callbacks = {}
-
----@return Frame
-local function getTimeoutFrame()
-    local frameName = "TWA_TimeOutFrame"
-    return getglobal(frameName) or CreateFrame("Frame", frameName)
-end
-
-local frameCounter = 0
-local function checkCallbacks()
-    frameCounter = frameCounter + 1
-    if TWA.util.mod(frameCounter, TWA.CHECK_TIMEOUTS_EACH_N_FRAMES) ~= 0 then return end
-
-    local curTime = GetTime()
-    local invokedCallbacks = {}
-
-    for i, tc in ipairs(callbacks) do
-        if tc.startTime + tc.delay <= curTime then
-            tc.callback()
-            table.insert(invokedCallbacks, i)
+        if IsRaidLeader() then
+            TWA.BroadcastSync()
+            TWA.RequestAllAssistantRosters()
         end
-    end
-
-    local i = table.getn(invokedCallbacks)
-    while i > 0 do
-        table.remove(callbacks, invokedCallbacks[i]);
-        i = i - 1
-    end
-
-    if table.getn(callbacks) == 0 then
-        getTimeoutFrame():SetScript("OnUpdate", nil);
-    end
-end
-
--- https://gist.github.com/jrus/3197011
-local random = math.random
-local function uuid()
-    local template = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
-    return string.gsub(template, '[xy]', function(c)
-        local v = (c == 'x') and random(0, 15) or random(8, 11)
-        return string.format('%x', v)
-    end)
-end
-
----Set a callback function to be called after a timeout.
----@param callback function The function to call after the delay
----@param delay number Number of seconds to delay, accepts decimals
----@return string id The id of the timeout
-function TWA.setTimeout(callback, delay)
-    local waitFrame = getTimeoutFrame()
-    local timeoutId = uuid()
-
-    ---@type TWATWATimeoutCallback
-    local tc = {
-        id = timeoutId,
-        callback = callback,
-        delay = delay,
-        startTime = GetTime()
-    }
-    table.insert(callbacks, tc)
-
-    waitFrame:SetScript("OnUpdate", checkCallbacks)
-    return timeoutId;
-end
-
----Cancel an already queued timeout
----@param id string The id of the timeout
-function TWA.clearTimeout(id)
-    if id == nil then return end
-    ---@type integer|nil
-    local timeoutToDelete = nil
-
-    for i, tc in ipairs(callbacks) do
-        if timeoutToDelete ~= nil then break end
-        if tc.id == id then
-            timeoutToDelete = i
-        end
-    end
-
-    if timeoutToDelete == nil then return end
-
-    table.remove(callbacks, timeoutToDelete);
-
-    if table.getn(callbacks) == 0 then
-        getTimeoutFrame():SetScript("OnUpdate", nil);
     end
 end
 
@@ -750,21 +666,22 @@ TWA:SetScript("OnEvent", function()
             TWA.roster = TWA_ROSTER
         end
 
-        if TWA_OTHER_PEOPLES_ROSTERS then
-            TWA.otherPeoplesRosters = TWA_OTHER_PEOPLES_ROSTERS
+        if TWA_FOREIGN_ROSTERS then
+            TWA.foreignRosters = TWA_FOREIGN_ROSTERS
         end
 
-        TWA.setTimeout(function()
-            twadebug('initializing group state')
-            TWA.InitializeGroupState()
-        end, TWA.LOGIN_GRACE_PERIOD)
-
-        TWA.PlayerGroupStateUpdate()
         TWA.fillRaidData()
         TWA.PopulateTWA()
 
         tinsert(UISpecialFrames, "TWA_Main") --makes window close with Esc key
         tinsert(UISpecialFrames, "TWA_RosterManager")
+    end
+
+    if event == "PLAYER_LOGIN" then
+        TWA.setTimeout(function()
+            twadebug('initializing group state')
+            TWA.InitializeGroupState()
+        end, TWA.LOGIN_GRACE_PERIOD)
     end
 
     if event == "RAID_ROSTER_UPDATE" then
@@ -857,8 +774,8 @@ function TWA.persistRoster()
     TWA_ROSTER = TWA.roster
 end
 
-function TWA.persistOtherPeoplesRosters()
-    TWA_OTHER_PEOPLES_ROSTERS = TWA.otherPeoplesRosters
+function TWA.persistForeignRosters()
+    TWA_FOREIGN_ROSTERS = TWA.foreignRosters
 end
 
 ---@param prev boolean
@@ -880,7 +797,7 @@ end
 function TWA.PlayerWasPromoted(name)
     if TWA._raidStateInitialized then
         twadebug('player was promoted: ' .. name)
-        if name == me then TWA.BroadcastRoster(TWA.roster) end
+        if name == me then TWA.BroadcastRoster(TWA.roster, true) end
     end
 end
 
@@ -892,8 +809,8 @@ end
 ---@param name string
 function TWA.PlayerWasDemoted(name)
     twadebug('player was demoted: ' .. name)
-    TWA.otherPeoplesRosters[name] = nil
-    TWA.persistOtherPeoplesRosters()
+    TWA.foreignRosters[name] = nil
+    TWA.persistForeignRosters()
 end
 
 function TWA.CheckIfPromoted(name, newRank)
@@ -959,15 +876,15 @@ function TWA.updateRaidStatus()
     -- check all current assists and leader if they have left the group
     if oldLeader ~= nil and nameCache[oldLeader] == nil then
         twadebug('leader left the raid: ' .. oldLeader)
-        TWA.otherPeoplesRosters[oldLeader] = nil
-        TWA.persistOtherPeoplesRosters()
+        TWA.foreignRosters[oldLeader] = nil
+        TWA.persistForeignRosters()
     end
 
     for _, name in ipairs(TWA._assistants) do
         if nameCache[name] == nil then
             twadebug('assistant left the raid: ' .. oldLeader)
-            TWA.otherPeoplesRosters[name] = nil
-            TWA.persistOtherPeoplesRosters()
+            TWA.foreignRosters[name] = nil
+            TWA.persistForeignRosters()
         end
     end
 
@@ -1031,15 +948,15 @@ function TWA.isPlayerOffline(name)
     return false
 end
 
----Handles adding players from other people's rosters to TWA.otherPeoplesRosters.
+---Handles adding players from other people's rosters to TWA.foreignRosters.
 ---Duplicate names are not allowed within a class, but is OK across classes.
 ---@param rosterOwner any
 ---@param class any
 ---@param player any
 function TWA.addUniqueToRoster(rosterOwner, class, player)
-    -- Ensure the rosterOwner has a roster in TWA.otherPeoplesRosters
-    if not TWA.otherPeoplesRosters[rosterOwner] then
-        TWA.otherPeoplesRosters[rosterOwner] = {
+    -- Ensure the rosterOwner has a roster in TWA.foreignRosters
+    if not TWA.foreignRosters[rosterOwner] then
+        TWA.foreignRosters[rosterOwner] = {
             ['druid'] = {},
             ['hunter'] = {},
             ['mage'] = {},
@@ -1053,7 +970,7 @@ function TWA.addUniqueToRoster(rosterOwner, class, player)
     end
 
     -- Access the roster for this specific rosterOwner
-    local ownerRoster = TWA.otherPeoplesRosters[rosterOwner]
+    local ownerRoster = TWA.foreignRosters[rosterOwner]
 
     -- Check if the player is already in the class list
     if TWA.util.tableContains(ownerRoster[class], player) then return end
@@ -1077,7 +994,7 @@ function TWA.handleSync(_, t, _, sender)
         local args = string.split(t, '=')
         local name = args[2]
         if name == me then
-            TWA.BroadcastRoster(TWA.roster)
+            TWA.BroadcastRoster(TWA.roster, true)
         end
         return true
     end
@@ -1092,7 +1009,7 @@ function TWA.handleSync(_, t, _, sender)
         local myHash = TWA.util.djb2_hash(TWA.SerializeRoster(TWA.roster))
 
         if theirHash ~= myHash then
-            TWA.BroadcastRoster(TWA.roster)
+            TWA.BroadcastRoster(TWA.roster, true)
         end
         return true
     end
@@ -1114,7 +1031,7 @@ function TWA.handleSync(_, t, _, sender)
                 twaprint('Full sync complete')
                 TWA._firstSyncComplete = true
             end
-            TWA.persistOtherPeoplesRosters()
+            TWA.persistForeignRosters()
         elseif args[2] == '#roster' then
             local class = args[3]
             local names = string.split(args[4], ',')
@@ -1137,7 +1054,7 @@ function TWA.handleSync(_, t, _, sender)
         return true
     end
 
-    if string.find(t, 'RosterBroadcast=', 1, true) and sender ~= me then
+    if string.find(t, 'RosterBroadcastPartial=', 1, true) and sender ~= me then
         local args = string.split(t, '=')
         if args[2] == 'start' then
             -- todo: could add some handling for simultaneous incoming broadcasts:
@@ -1147,7 +1064,29 @@ function TWA.handleSync(_, t, _, sender)
             -- only if list of broadcasts is empty, run the following stuff:
             TWA.fillRaidData()
             TWA.PopulateTWA()
-            TWA.persistOtherPeoplesRosters()
+            TWA.persistForeignRosters()
+        else
+            local class = args[2]
+            local names = string.split(args[3], ',')
+            for _, name in ipairs(names) do
+                TWA.addUniqueToRoster(sender, class, name)
+            end
+        end
+        return true
+    end
+
+    if string.find(t, 'RosterBroadcastFull=', 1, true) and sender ~= me then
+        local args = string.split(t, '=')
+        if args[2] == 'start' then
+            TWA.foreignRosters[sender] = nil
+            -- todo: could add some handling for simultaneous incoming broadcasts:
+            -- add to list of incoming broadcasts
+        elseif args[2] == 'end' then
+            -- remove from list of incoming broadcasts
+            -- only if list of broadcasts is empty, run the following stuff:
+            TWA.fillRaidData()
+            TWA.PopulateTWA()
+            TWA.persistForeignRosters()
         else
             local class = args[2]
             local names = string.split(args[3], ',')
@@ -1163,14 +1102,14 @@ function TWA.handleSync(_, t, _, sender)
         local class = args[2]
         local name = args[3]
 
-        if TWA.otherPeoplesRosters[sender] ~= nil then
-            if TWA.otherPeoplesRosters[sender][class] ~= nil then
-                local nameIndex = TWA.util.tablePosOf(TWA.otherPeoplesRosters[sender][class], name)
+        if TWA.foreignRosters[sender] ~= nil then
+            if TWA.foreignRosters[sender][class] ~= nil then
+                local nameIndex = TWA.util.tablePosOf(TWA.foreignRosters[sender][class], name)
                 if nameIndex ~= nil then
-                    table.remove(TWA.otherPeoplesRosters[sender][class], nameIndex)
+                    table.remove(TWA.foreignRosters[sender][class], nameIndex)
                     TWA.fillRaidData()
                     TWA.PopulateTWA()
-                    TWA.persistOtherPeoplesRosters()
+                    TWA.persistForeignRosters()
                 end
             end
         end
