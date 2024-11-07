@@ -886,7 +886,7 @@ function TWA.updateRaidStatus()
 
     for _, name in ipairs(TWA._assistants) do
         if nameCache[name] == nil then
-            twadebug('assistant left the raid: ' .. oldLeader)
+            twadebug('assistant left the raid: ' .. name)
             TWA.foreignRosters[name] = nil
             TWA.persistForeignRosters()
         end
