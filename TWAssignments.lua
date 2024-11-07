@@ -1705,9 +1705,7 @@ function TWA.PopulateTWA()
 
     for i = 1, 25 do
         if TWA.rows[i] then
-            if TWA.rows[i]:IsVisible() then
-                TWA.rows[i]:Hide()
-            end
+            TWA.rows[i]:Hide()
         end
     end
 
