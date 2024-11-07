@@ -1,8 +1,8 @@
 ## Interface: 11200
 ## Title: TW Assignments
-## Author: Xerron/Er
-## Version: 1.0.0.0
+## Author: Xerron/Er/Tantomon
+## Version: 1.1.0.0
 ## Notes: Raid Tank/Healer Assignments
-## SavedVariables: TWA_DATA, TWA_PRESETS, TWA_POSITION, TWA_ROSTER
+## SavedVariables: TWA_DATA, TWA_PRESETS, TWA_POSITION, TWA_ROSTER, TWA_FOREIGN_ROSTERS
 ChatThrottleLib\ChatThrottleLib.lua
 TWAssignments.xml

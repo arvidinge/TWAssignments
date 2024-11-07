@@ -1,8 +1,14 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/"
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/..\FrameXML\UI.xsd">
+
+    <Script file="TWAInit.lua" />
+    <Script file="TWAUtil.lua" />
+    <Script file="TWAConstants.lua" />
+    <Script file="TWAState.lua" />
+    <Script file="TWATimeout.lua" />
     <Script file="TWAssignments.lua" />
     <Script file="TWRosterFrame.lua" />
-    <Script file="TWAUtil.lua" />
+
     <Frame name="TWRow" virtual="true">
         <Size>
             <AbsDimension x="590" y="20" />
@@ -179,21 +185,24 @@
                     </Layer>
                 </Layers>
                 <Frames>
-                    <ScrollFrame name="TWA_RosterManagerAddPlayersFrameScrollFrame" inherits="UIPanelScrollFrameTemplate">
+                    <ScrollFrame name="TWA_RosterManagerAddPlayersFrameScrollFrame"
+                        inherits="UIPanelScrollFrameTemplate">
                         <Size>
-                            <AbsDimension x="147" y="296"/>
+                            <AbsDimension x="147" y="296" />
                         </Size>
                         <Anchors>
-                            <Anchor point="TOPLEFT" relativeTo="TWA_RosterManagerAddPlayersFrame" relativePoint="TOPLEFT">
+                            <Anchor point="TOPLEFT" relativeTo="TWA_RosterManagerAddPlayersFrame"
+                                relativePoint="TOPLEFT">
                                 <Offset>
-                                    <AbsDimension x="16" y="-70"/>
+                                    <AbsDimension x="16" y="-70" />
                                 </Offset>
                             </Anchor>
                         </Anchors>
                         <ScrollChild>
-                            <EditBox name="TWA_RosterManagerAddPlayersFrameEditBox" multiLine="true" autoFocus="false" nonspacewrap="false">
+                            <EditBox name="TWA_RosterManagerAddPlayersFrameEditBox" multiLine="true"
+                                autoFocus="false" nonspacewrap="false">
                                 <Size>
-                                    <AbsDimension x="147" y="100"/>
+                                    <AbsDimension x="147" y="100" />
                                 </Size>
                                 <Scripts>
                                     <OnTextChanged>
@@ -203,16 +212,17 @@
                                         this:ClearFocus();
                                     </OnEscapePressed>
                                 </Scripts>
-                                <FontString inherits="GameFontHighlightSmall"/>
+                                <FontString inherits="GameFontHighlightSmall" />
                             </EditBox>
                         </ScrollChild>
                     </ScrollFrame>
                     <Button name="TWA_RosterManagerAddPlayersFrameEditBoxCaptureClickArea">
                         <Size>
-                            <AbsDimension x="147" y="296"/>
+                            <AbsDimension x="147" y="296" />
                         </Size>
                         <Anchors>
-                            <Anchor point="TOPLEFT" relativeTo="TWA_RosterManagerAddPlayersFrameEditBox"/>
+                            <Anchor point="TOPLEFT"
+                                relativeTo="TWA_RosterManagerAddPlayersFrameEditBox" />
                         </Anchors>
                         <Scripts>
                             <OnClick>
@@ -222,25 +232,29 @@
                     </Button>
                     <Frame name="TWA_RosterManagerAddPlayersFrameEditBoxBackground">
                         <Size>
-                            <AbsDimension x="180" y="306"/>
+                            <AbsDimension x="180" y="306" />
                         </Size>
                         <Anchors>
-                            <Anchor point="TOPLEFT" relativeTo="TWA_RosterManagerAddPlayersFrameScrollFrame" relativePoint="TOPLEFT">
+                            <Anchor point="TOPLEFT"
+                                relativeTo="TWA_RosterManagerAddPlayersFrameScrollFrame"
+                                relativePoint="TOPLEFT">
                                 <Offset>
-                                    <AbsDimension x="-6" y="6"/>
+                                    <AbsDimension x="-6" y="6" />
                                 </Offset>
                             </Anchor>
                         </Anchors>
-                        <Backdrop bgFile="Interface\Tooltips\UI-Tooltip-Background" edgeFile="Interface\Tooltips\UI-Tooltip-Border" tile="true">
+                        <Backdrop bgFile="Interface\Tooltips\UI-Tooltip-Background"
+                            edgeFile="Interface\Tooltips\UI-Tooltip-Border" tile="true">
                             <EdgeSize>
-                                <AbsValue val="16"/>
+                                <AbsValue val="16" />
                             </EdgeSize>
                             <TileSize>
-                                <AbsValue val="16"/>
+                                <AbsValue val="16" />
                             </TileSize>
                             <BackgroundInsets>
-                                <AbsInset left="5" right="5" top="5" bottom="5"/>
+                                <AbsInset left="5" right="5" top="5" bottom="5" />
                             </BackgroundInsets>
+                            <Color r="0" g="0" b="1" a="0.2" />
                         </Backdrop>
                     </Frame>
                     <Button name="$parentDone" inherits="UIPanelButtonTemplate2" text="Done">
@@ -343,7 +357,7 @@
         </Backdrop>
         <Layers>
             <Layer level="OVERLAY">
-                <FontString name="$parentText" inherits="GameFontNormal" text=" -- TARGET --"
+                <FontString name="$parentText" inherits="GameFontNormal" text=" TARGET"
                     hidden="false">
                     <Anchors>
                         <Anchor point="TOPLEFT">
@@ -354,7 +368,7 @@
                     </Anchors>
                 </FontString>
                 <FontString name="$parentText" inherits="GameFontNormal"
-                    text="| ---------------- TANKS ----------------- | " hidden="false">
+                    text="| TANKS" hidden="false">
                     <Anchors>
                         <Anchor point="TOPLEFT">
                             <Offset>
@@ -364,7 +378,7 @@
                     </Anchors>
                 </FontString>
                 <FontString name="$parentText" inherits="GameFontNormal"
-                    text=" ---------------- HEALERS --------------- |" hidden="false">
+                    text="| HEALERS" hidden="false">
                     <Anchors>
                         <Anchor point="TOPLEFT">
                             <Offset>
@@ -434,7 +448,7 @@
                     </OnLeave>
                     <OnMouseUp>
                         if arg1 == "LeftButton" then
-                        toggle_TWA_Main()
+                            toggle_TWA_Main()
                         -- else
                         -- ShowTWAMinimapDropdown()
                         end
@@ -442,11 +456,10 @@
                     </OnMouseUp>
                     <OnEvent>
                         if event then
-                        if event == "PLAYER_LOGIN" then
-                        this:ClearAllPoints()
-                        this:SetPoint('CENTER', UIParent, 'BOTTOMLEFT', unpack(TWA_POSITION or
-                        {this:GetCenter()}))
-                        end
+                            if event == "PLAYER_LOGIN" then
+                                this:ClearAllPoints()
+                                this:SetPoint('CENTER', UIParent, 'BOTTOMLEFT', unpack(TWA_POSITION or {this:GetCenter()}))
+                            end
                         end
                     </OnEvent>
                 </Scripts>
