@@ -94,7 +94,9 @@ Type their name in the text box and click Done. You can type multiple names, jus
 The player should now appear under their class section in the roster window. They are now available to be assigned in the main window. You can use the `x` next to their name to remove them from the roster:
 
 ![the druid section expanded with new names](images/rosterNamesAdded.png)
+
 In the main window, the new roster players are now assignable:
+
 ![assigning roster players in the main window](images/rosterPickingPlayers.png)
 
 ### Automatic synchronization
