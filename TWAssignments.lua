@@ -1,6 +1,6 @@
 local addonVer = "1.0.0.0" --don't use letters or numbers > 10
 local me = UnitName('player')
-local debugLevel = TWA.DEBUG.NORMAL;
+local debugLevel = TWA.DEBUG.VERBOSE;
 
 local TWATargetsDropDown = CreateFrame('Frame', 'TWATargetsDropDown', UIParent, 'UIDropDownMenuTemplate')
 local TWATanksDropDown = CreateFrame('Frame', 'TWATanksDropDown', UIParent, 'UIDropDownMenuTemplate')
