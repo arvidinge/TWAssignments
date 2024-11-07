@@ -7,6 +7,13 @@ TWA.ROSTERFRAME_CLASSSECTION_ENTRY_HEIGHT = 15;
 TWA.ROSTERFRAME_CLASSSECTION_EXPANDMARGIN = 6;
 TWA.SORTED_CLASS_NAMES = { 'druid', 'hunter', 'mage', 'paladin', 'priest', 'rogue', 'shaman', 'warlock', 'warrior' }
 
+TWA.DEBUG = {
+  DISABLED = 1,
+  NORMAL = 2,
+  VERBOSE = 3,
+}
+
+
 
 ---@type table<TWAWowClass, TWAWowColor>
 TWA.classColors = {

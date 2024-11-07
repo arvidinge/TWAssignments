@@ -1,5 +1,6 @@
 local addonVer = "1.0.0.0" --don't use letters or numbers > 10
 local me = UnitName('player')
+local debugLevel = TWA.DEBUG.NORMAL;
 
 local TWATargetsDropDown = CreateFrame('Frame', 'TWATargetsDropDown', UIParent, 'UIDropDownMenuTemplate')
 local TWATanksDropDown = CreateFrame('Frame', 'TWATanksDropDown', UIParent, 'UIDropDownMenuTemplate')
@@ -21,8 +22,7 @@ function twaerror(a)
 end
 
 function twadebug(a)
-    --    if not TWLC_DEBUG then return end
-    if me == 'Kzktst' or me == 'Xerrtwo' or me == 'Tantomon' or me == 'Gergrutaa' then
+    if (me == 'Kzktst' or me == 'Xerrtwo' or me == 'Tantomon' or me == 'Gergrutaa') and debugLevel > TWA.DEBUG.DISABLED then
         twaprint('|cff0070de[TWADEBUG:' .. time() .. ']|cffffffff[' .. a .. ']')
     end
 end
@@ -703,7 +703,9 @@ TWA:SetScript("OnEvent", function()
     end
 
     if event == 'CHAT_MSG_ADDON' and arg1 == "TWA" then
-        twadebug(arg4 .. ' says: ' .. arg2)
+        if debugLevel >= TWA.DEBUG.VERBOSE then
+            twadebug(arg4 .. ' says: ' .. arg2)
+        end
         TWA.handleSync(arg1, arg2, arg3, arg4)
     end
 
@@ -830,6 +832,8 @@ end
 function TWA.updateRaidStatus()
     local oldLeader = TWA._leader;
     local newLeader = nil;
+
+    ---Holds the name of the player, and their index in the group (for use in GetRaidRosterInfo(index))
     ---@type table<string, integer>
     local nameCache = {}
 
