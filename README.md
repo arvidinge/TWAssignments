@@ -102,6 +102,8 @@ The assignments table, the selected template and rosters of the leader and all a
 
 While in a raid, the rosters of the leader and all assistants are temporarily shared between all players using the addon. Any assistant can change the current assignments and select players from other people's rosters. Duplicate names are removed within each class, but allowed across classes. When you leave the raid, all roster entries from other players are removed.
 
+Rosters are synchronized with a distributed algorithm. If you join a raid, you make individual requests to each assistant and leader to broadcast their rosters. If you log in while in the raid group or reload your UI, you will hash each assistant's roster and send the hash to them. Only if the hash mismatches on the assistant's end (meaning they changed their roster while you were offline) will they broadcast their roster again. This way you always have up to date rosters from the other players.
+
 ## Integrations
 
 ### QuickHeal
