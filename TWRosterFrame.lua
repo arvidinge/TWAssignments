@@ -340,27 +340,24 @@ function TWA_AddPlayersDoneClick()
   end
 
   -- Insert into roster if they don't already exist
-  local classRoster = TWA.roster[class];
+  local classNames = TWA.roster[class];
+  ---@type table<integer, string>
+  local newNames = {}
   for _, newname in ipairs(newnames) do
-    local nameFound = false;
-    for _, currentClassNames in pairs(TWA.roster) do
-      for _, existingName in pairs(currentClassNames) do
-        if newname == existingName then nameFound = true end
-      end
-    end
-
-    if not nameFound then
-      table.insert(classRoster, strCapitalize(newname));
-    else
-      -- twadebug('name taken')
+    local capitalizedNewName = strCapitalize(newname)
+    if not TWA.util.tableContains(classNames, capitalizedNewName) then
+      table.insert(classNames, capitalizedNewName);
+      table.insert(newNames, capitalizedNewName)
     end
   end
 
-  ---@type TWARoster
-  local newRosterEntries = {
-    [class] = newnames
-  }
-  TWA.BroadcastRoster(newRosterEntries, false)
+  if table.getn(newNames) > 0 then
+    ---@type TWARoster
+    local newClassRoster = {
+      [class] = newNames
+    }
+    TWA.BroadcastRoster(newClassRoster, false)
+  end
 
   addPlayers:SetText('')
   addPlayers.frame:Hide()
