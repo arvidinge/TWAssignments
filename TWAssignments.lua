@@ -928,6 +928,10 @@ function TWA.fillRaidData()
     end
 end
 
+function TWA.isPlayerLeadOrAssist(name)
+    return TWA._assistants[name] ~= nil or TWA._leader == name
+end
+
 function TWA.isPlayerOffline(name)
     local playerFound = false;
     for i = 0, GetNumRaidMembers() do
@@ -1139,6 +1143,13 @@ function TWA.handleSync(_, t, _, sender)
         end
 
         TWA.change(tonumber(changeEx[2]), changeEx[3], sender, changeEx[4] == '1')
+        return true
+    end
+
+    if string.find(t, 'WipeTable', 1, true) then
+        if TWA.isPlayerLeadOrAssist(sender) then
+            TWA.WipeTable()
+        end
         return true
     end
 
@@ -1679,11 +1690,7 @@ end
 
 function TWA.changeCell(xy, to, dontOpenDropdown)
     dontOpenDropdown = dontOpenDropdown and 1 or 0
-
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "ChangeCell=" .. xy .. "=" .. to .. "=" .. dontOpenDropdown, "RAID")
-
-    local x = math.floor(xy / 100)
-    local y = xy - x * 100
     CloseDropDownMenus()
 end
 
@@ -1988,6 +1995,15 @@ function Reset_OnClick()
         preferredIndex = 3, -- avoid some UI taint, see http://www.wowace.com/announcements/how-to-avoid-some-ui-taint/
     }
     StaticPopup_Show("TWA_RESET_CONFIRM")
+end
+
+function TWA.WipeTable()
+    for i = 1, table.getn(TWA.data) do
+        for j = 2, 7 do -- skip target col
+            TWA.data[i][j] = '-'
+        end
+    end
+    TWA.PopulateTWA()
 end
 
 function TWA.Reset()
@@ -2354,13 +2370,18 @@ function Templates_OnClick()
     ToggleDropDownMenu(1, nil, TWATemplates, "cursor", 2, 3);
 end
 
+function TWA.WipeTableBroadcast()
+    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "WipeTable", "RAID")
+end
+
 function LoadPreset_OnClick()
     if not TWA_CanMakeChanges() then return end
     if TWA.loadedTemplate == '' then
         twaprint('Please load a template first.')
     else
         TWA.loadTemplate(TWA.loadedTemplate)
-
+        -- wipe table
+        TWA.WipeTableBroadcast()
         if TWA_PRESETS[TWA.loadedTemplate] then
             for index, data in next, TWA_PRESETS[TWA.loadedTemplate] do
                 for i, name in data do
