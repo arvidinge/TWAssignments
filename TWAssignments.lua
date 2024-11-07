@@ -817,14 +817,14 @@ end
 
 function TWA.CheckIfPromoted(name, newRank)
     if newRank > 0 then
-        if not (TWA.util.tableContains(TWA._assistants, name) or TWA._leader == name) then
+        if not (TWA._assistants[name] or TWA._leader == name) then
             TWA.PlayerWasPromoted(name)
         end
     end
 end
 
 function TWA.CheckIfDemoted(name) -- new rank is always "normal" (neither officer nor leader)
-    if TWA._leader == name or TWA.util.tableContains(TWA._assistants, name) then
+    if TWA._leader == name or TWA._assistants[name] then
         TWA.PlayerWasDemoted(name)
     end
 end
@@ -856,18 +856,13 @@ function TWA.updateRaidStatus()
                 TWA.OnLeaderOnlineUpdate(prevState, TWA._leaderOnline)
             elseif rank == 1 then -- assist
                 TWA.CheckIfPromoted(name, rank)
-                if not TWA.util.tableContains(TWA._assistants, name) then
-                    table.insert(TWA._assistants, name)
-                end
+                TWA._assistants[name] = true
             else -- pleb
                 TWA.CheckIfDemoted(name)
                 if TWA._leader == name then
                     TWA._leader = nil
-                elseif TWA.util.tableContains(TWA._assistants, name) then
-                    local index = TWA.util.tablePosOf(TWA._assistants, name)
-                    if index ~= nil then
-                        table.remove(TWA._assistants, index)
-                    end
+                elseif TWA._assistants[name] then
+                    TWA._assistants[name] = nil
                 end
             end
         else
@@ -884,10 +879,11 @@ function TWA.updateRaidStatus()
         TWA.persistForeignRosters()
     end
 
-    for _, name in ipairs(TWA._assistants) do
+    for name, _ in pairs(TWA._assistants) do
         if nameCache[name] == nil then
-            twadebug('assistant left the raid: ' .. oldLeader)
+            twadebug('assistant left the raid: ' .. name)
             TWA.foreignRosters[name] = nil
+            TWA._assistants[name] = nil
             TWA.persistForeignRosters()
         end
     end
