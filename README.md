@@ -6,7 +6,7 @@ Use TWAssignments to assign tanks to specific targets, and healers to specific t
 ## Installation
 
 ### Manual
-On the [main page](https://github.com/arvidinge/TWAssignments/tree/master) of the repo, click the code dropdown ![Code dropdown](image.png) and download the repo as a .zip.
+On the [main page](https://github.com/arvidinge/TWAssignments/tree/master) of the repo, click the code dropdown ![Code dropdown](images/codeButton.png) and download the repo as a .zip.
 Unpack the .zip and rename the folder to `TWAssignments` (remove the `-master` part).
 Drop it into your AddOns directory and restart the game.
 
