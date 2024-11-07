@@ -3,7 +3,7 @@ TWA.rows = {}
 TWA.cells = {}
 TWA.loadedTemplate = '' ---@type string
 
-TWA._assistants = {} ---@type table<integer, string>
+TWA._assistants = {} ---@type table<string, boolean>
 TWA._firstSyncComplete = false;
 TWA._leader = nil ---@type string|nil
 TWA._leaderOnline = false ---@type boolean
