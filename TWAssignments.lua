@@ -1,4 +1,4 @@
-local addonVer = "1.0.0.0" --don't use letters or numbers > 10
+local addonVer = "1.1.0.0" --don't use letters or numbers > 10
 local me = UnitName('player')
 local debugLevel = TWA.DEBUG.VERBOSE;
 
