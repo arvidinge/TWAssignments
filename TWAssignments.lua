@@ -430,7 +430,6 @@ function TWA.SerializeRoster(roster)
     return serialized
 end
 
-
 ---Remove foreign roster entries from people who are neither an assistant nor leader of the raid
 function TWA.CleanUpForeignRoster()
     local assistantCache = {} ---@type table<string, boolean>

@@ -18,15 +18,15 @@ TWA.partyAndRaidCombinedEventTimeoutId = nil
 
 ---@type TWARoster
 TWA.roster = {
-  ['druid'] = {},
-  ['hunter'] = {},
-  ['mage'] = {},
-  ['paladin'] = {},
-  ['priest'] = {},
-  ['rogue'] = {},
-  ['shaman'] = {},
-  ['warlock'] = {},
-  ['warrior'] = {},
+    ['druid'] = {},
+    ['hunter'] = {},
+    ['mage'] = {},
+    ['paladin'] = {},
+    ['priest'] = {},
+    ['rogue'] = {},
+    ['shaman'] = {},
+    ['warlock'] = {},
+    ['warrior'] = {},
 }
 
 ---@type table<string, TWARoster>
@@ -34,13 +34,13 @@ TWA.foreignRosters = {}
 
 ---@type TWARoster
 TWA.raid = {
-  ['druid'] = {},
-  ['hunter'] = {},
-  ['mage'] = {},
-  ['paladin'] = {},
-  ['priest'] = {},
-  ['rogue'] = {},
-  ['shaman'] = {},
-  ['warlock'] = {},
-  ['warrior'] = {},
+    ['druid'] = {},
+    ['hunter'] = {},
+    ['mage'] = {},
+    ['paladin'] = {},
+    ['priest'] = {},
+    ['rogue'] = {},
+    ['shaman'] = {},
+    ['warlock'] = {},
+    ['warrior'] = {},
 }
