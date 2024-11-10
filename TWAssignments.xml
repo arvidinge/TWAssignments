@@ -6,6 +6,7 @@
     <Script file="TWAConstants.lua" />
     <Script file="TWAState.lua" />
     <Script file="TWATimeout.lua" />
+    <Script file="TWASync.lua" />
     <Script file="TWAssignments.lua" />
     <Script file="TWRosterFrame.lua" />
 
