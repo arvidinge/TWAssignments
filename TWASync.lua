@@ -34,7 +34,7 @@ function TWA.sync.handleSync(_, t, _, sender)
 
     if string.find(t, 'RequestSync=', 1, true) and sender ~= TWA.me then
         twadebug(sender .. ' requested full sync')
-        if IsRaidLeader() then TWA.sync.BroadcastSync() end
+        if IsRaidLeader() then TWA.sync.BroadcastFullSync() end
         return true
     end
 
@@ -54,7 +54,7 @@ function TWA.sync.handleSync(_, t, _, sender)
             local class = args[3]
             local names = string.split(args[4], ',')
             for _, name in ipairs(names) do
-                TWA.addUniqueToRoster(sender, class, name)
+                TWA.addToForeignRoster(sender, class, name)
             end
         else
             if args[2] and args[3] and args[4] and args[5] and args[6] and args[7] and args[8] then
@@ -87,7 +87,7 @@ function TWA.sync.handleSync(_, t, _, sender)
             local class = args[2]
             local names = string.split(args[3], ',')
             for _, name in ipairs(names) do
-                TWA.addUniqueToRoster(sender, class, name)
+                TWA.addToForeignRoster(sender, class, name)
             end
         end
         return true
@@ -109,7 +109,7 @@ function TWA.sync.handleSync(_, t, _, sender)
             local class = args[2]
             local names = string.split(args[3], ',')
             for _, name in ipairs(names) do
-                TWA.addUniqueToRoster(sender, class, name)
+                TWA.addToForeignRoster(sender, class, name)
             end
         end
         return true
@@ -214,7 +214,7 @@ function TWA.sync.handleQHSync(pre, t, ch, sender)
 end
 
 ---As a non-leader, request full sync of data (when you join the group for example)
-function TWA.sync.RequestSync()
+function TWA.sync.RequestFullSync()
     twadebug('i request sync')
     twaprint('Requesting full sync of data...')
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RequestSync=" .. TWA.me, "RAID")
@@ -222,7 +222,7 @@ end
 
 ---As a leader, broadcast a full sync of data (when a player requests it, or the group is converted from party to raid).
 ---Does nothing if not a raid leader.
-function TWA.sync.BroadcastSync()
+function TWA.sync.BroadcastFullSync()
     if not IsRaidLeader() then return end
     twadebug('i broadcast sync')
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=start", "RAID")
@@ -291,7 +291,7 @@ function TWA.sync.BroadcastRosterEntryDeleted(class, name)
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RosterEntryDeleted=" .. class .. "=" .. name, "RAID")
 end
 
-function TWA.sync.WipeTableBroadcast()
+function TWA.sync.BroadcastWipeTable()
     ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "WipeTable", "RAID")
 end
 
@@ -303,7 +303,7 @@ end
 ---
 --- It also handles the case where rosters for certain assistants are missing by
 --- directly requesting their rosters.
-function TWA.sync.RequestAllAssistantRosters()
+function TWA.sync.RequestAssistantRosters()
     if not (TWA.InRaid()) then return end
 
     ---@type table<string, string>

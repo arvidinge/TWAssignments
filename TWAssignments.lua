@@ -497,11 +497,11 @@ function TWA.PlayerGroupStateUpdate()
             setGroupState('raid')
             -- logged in while in raid group
             if IsRaidLeader() then
-                TWA.sync.BroadcastSync() -- overwrite any changes made by assistants while you were offline
+                TWA.sync.BroadcastFullSync() -- overwrite any changes made by assistants while you were offline
             else
-                TWA.sync.RequestSync()
+                TWA.sync.RequestFullSync()
             end
-            TWA.sync.RequestAllAssistantRosters()
+            TWA.sync.RequestAssistantRosters()
         else
             twadebug('not in raid')
         end
@@ -512,8 +512,8 @@ function TWA.PlayerGroupStateUpdate()
         if TWA.InRaid() then
             -- joined a raid
             setGroupState('raid')
-            TWA.sync.RequestSync()
-            TWA.sync.RequestAllAssistantRosters()
+            TWA.sync.RequestFullSync()
+            TWA.sync.RequestAssistantRosters()
         end
     elseif (TWA._playerGroupState == 'party' or TWA._playerGroupState == 'raid') and not TWA.InParty() then
         -- left the group
@@ -524,8 +524,8 @@ function TWA.PlayerGroupStateUpdate()
         -- party was converted to raid
         setGroupState('raid')
         if IsRaidLeader() then
-            TWA.sync.BroadcastSync()
-            TWA.sync.RequestAllAssistantRosters()
+            TWA.sync.BroadcastFullSync()
+            TWA.sync.RequestAssistantRosters()
         end
     end
 end
@@ -842,7 +842,7 @@ end
 ---@param rosterOwner any
 ---@param class any
 ---@param player any
-function TWA.addUniqueToRoster(rosterOwner, class, player)
+function TWA.addToForeignRoster(rosterOwner, class, player)
     -- Ensure the rosterOwner has a roster in TWA.foreignRosters
     if not TWA.foreignRosters[rosterOwner] then
         TWA.foreignRosters[rosterOwner] = {
@@ -2046,7 +2046,7 @@ function LoadPreset_OnClick()
         twaprint('Please load a template first.')
     else
         TWA.loadTemplate(TWA.loadedTemplate)
-        TWA.sync.WipeTableBroadcast()
+        TWA.sync.BroadcastWipeTable()
         if TWA_PRESETS[TWA.loadedTemplate] then
             for index, data in next, TWA_PRESETS[TWA.loadedTemplate] do
                 for i, name in data do
