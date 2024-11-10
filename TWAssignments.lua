@@ -497,11 +497,11 @@ function TWA.PlayerGroupStateUpdate()
             setGroupState('raid')
             -- logged in while in raid group
             if IsRaidLeader() then
-                TWA.BroadcastSync() -- overwrite any changes made by assistants while you were offline
+                TWA.sync.BroadcastSync() -- overwrite any changes made by assistants while you were offline
             else
-                TWA.RequestSync()
+                TWA.sync.RequestSync()
             end
-            TWA.RequestAllAssistantRosters()
+            TWA.sync.RequestAllAssistantRosters()
         else
             twadebug('not in raid')
         end
@@ -512,8 +512,8 @@ function TWA.PlayerGroupStateUpdate()
         if TWA.InRaid() then
             -- joined a raid
             setGroupState('raid')
-            TWA.RequestSync()
-            TWA.RequestAllAssistantRosters()
+            TWA.sync.RequestSync()
+            TWA.sync.RequestAllAssistantRosters()
         end
     elseif (TWA._playerGroupState == 'party' or TWA._playerGroupState == 'raid') and not TWA.InParty() then
         -- left the group
@@ -524,8 +524,8 @@ function TWA.PlayerGroupStateUpdate()
         -- party was converted to raid
         setGroupState('raid')
         if IsRaidLeader() then
-            TWA.BroadcastSync()
-            TWA.RequestAllAssistantRosters()
+            TWA.sync.BroadcastSync()
+            TWA.sync.RequestAllAssistantRosters()
         end
     end
 end
@@ -591,11 +591,11 @@ TWA:SetScript("OnEvent", function()
         if debugLevel >= TWA.DEBUG.VERBOSE then
             twadebug(arg4 .. ' says: ' .. arg2)
         end
-        TWA.handleSync(arg1, arg2, arg3, arg4)
+        TWA.sync.handleSync(arg1, arg2, arg3, arg4)
     end
 
     if event == 'CHAT_MSG_ADDON' and arg1 == "QH" then
-        TWA.handleQHSync(arg1, arg2, arg3, arg4)
+        TWA.sync.handleQHSync(arg1, arg2, arg3, arg4)
     end
 
     if event == 'CHAT_MSG_WHISPER' then
@@ -684,7 +684,7 @@ end
 function TWA.PlayerWasPromoted(name)
     if TWA._raidStateInitialized then
         twadebug('player was promoted: ' .. name)
-        if name == TWA.me then TWA.BroadcastRoster(TWA.roster, true) end
+        if name == TWA.me then TWA.sync.BroadcastRoster(TWA.roster, true) end
     end
 end
 
@@ -2046,8 +2046,7 @@ function LoadPreset_OnClick()
         twaprint('Please load a template first.')
     else
         TWA.loadTemplate(TWA.loadedTemplate)
-        -- wipe table
-        TWA.WipeTableBroadcast()
+        TWA.sync.WipeTableBroadcast()
         if TWA_PRESETS[TWA.loadedTemplate] then
             for index, data in next, TWA_PRESETS[TWA.loadedTemplate] do
                 for i, name in data do

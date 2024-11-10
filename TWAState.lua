@@ -12,7 +12,7 @@ TWA._playerGroupStateInitialized = false
 TWA._raidStateInitialized = false;
 
 ---When a player joins a raid group, both the PARTY_MEMBERS_CHANGED and RAID_ROSTER_UPDATE events are fired, in that order.
----I want to treat them as the same even IF they happen within half a second of each other. That is the purpose of this timeout.
+---I want to treat them as the same even IF they happen very close in time to each other. That is the purpose of this timeout.
 ---@type string|nil
 TWA.partyAndRaidCombinedEventTimeoutId = nil
 

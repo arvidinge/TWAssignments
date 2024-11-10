@@ -150,7 +150,7 @@ function TWAClassSection:_buildNameFrame(name, class)
         local indexToDelete = TWA.util.tablePosOf(classRoster, name)
         if indexToDelete ~= nil then
             table.remove(classRoster, indexToDelete);
-            TWA.BroadcastRosterEntryDeleted(self.class, name)
+            TWA.sync.BroadcastRosterEntryDeleted(self.class, name)
         end
         self:Update();
     end)
@@ -356,7 +356,7 @@ function TWA_AddPlayersDoneClick()
         local newClassRoster = {
             [class] = newNames
         }
-        TWA.BroadcastRoster(newClassRoster, false)
+        TWA.sync.BroadcastRoster(newClassRoster, false)
     end
 
     addPlayers:SetText('')
