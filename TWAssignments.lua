@@ -313,7 +313,7 @@ function TWA.loadTemplate(template, load)
         TWA.loadedTemplate = template
         return true
     end
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "LoadTemplate=" .. template, "RAID")
+    TWA.sync.SendAddonMessage("LoadTemplate=" .. template)
 end
 
 --testing
@@ -1372,7 +1372,7 @@ end
 
 function TWA.changeCell(xy, to, dontOpenDropdown)
     dontOpenDropdown = dontOpenDropdown and 1 or 0
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "ChangeCell=" .. xy .. "=" .. to .. "=" .. dontOpenDropdown, "RAID")
+    TWA.sync.SendAddonMessage("ChangeCell=" .. xy .. "=" .. to .. "=" .. dontOpenDropdown)
     CloseDropDownMenus()
 end
 
@@ -1584,7 +1584,7 @@ end
 
 function AddLine_OnClick()
     if not TWA_CanMakeChanges() then return end
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "AddLine", "RAID")
+    TWA.sync.SendAddonMessage("AddLine")
 end
 
 function TWA.AddLine()
@@ -1637,7 +1637,7 @@ end
 
 function RemRow_OnClick(id)
     if not TWA_CanMakeChanges() then return end
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RemRow=" .. id, "RAID")
+    TWA.sync.SendAddonMessage("RemRow=" .. id)
 end
 
 function TWA.RemRow(id, sender)
@@ -1669,7 +1669,7 @@ function Reset_OnClick()
         button1 = ACCEPT,
         button2 = CANCEL,
         OnAccept = function()
-            ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "Reset", "RAID")
+            TWA.sync.SendAddonMessage("Reset")
         end,
         timeout = 0,
         whileDead = true,
@@ -2092,8 +2092,7 @@ end
 
 function SyncBW_OnClick()
     if not TWA_CanMakeChanges() then return end
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWABW", "BWSynch=start", "RAID")
-
+    TWA.sync.SendAddonMessage("BWSynch=start", "TWABW")
     for _, data in next, TWA.data do
         local line = ''
         local dontPrintLine = true
@@ -2121,10 +2120,10 @@ function SyncBW_OnClick()
         end
 
         if not dontPrintLine then
-            ChatThrottleLib:SendAddonMessage("ALERT", "TWABW", "BWSynch=" .. line, "RAID")
+            TWA.sync.SendAddonMessage("BWSynch=" .. line, "TWABW")
         end
     end
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWABW", "BWSynch=end", "RAID")
+    TWA.sync.SendAddonMessage("BWSynch=end", "TWABW")
 end
 
 ---@param delimiter string

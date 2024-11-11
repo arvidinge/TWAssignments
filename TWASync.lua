@@ -208,16 +208,22 @@ function TWA.sync.handleQHSync(pre, t, ch, sender)
                 end
             end
             roster = tanks .. ";" .. healers;
-            ChatThrottleLib:SendAddonMessage("ALERT", "TWA", roster, "RAID") -- transmit roster
+            TWA.sync.SendAddonMessage(roster) -- transmit roster
         end
     end
+end
+
+function TWA.sync.BroadcastDataHash()
+    local hex = TWA.util.hashToHex(TWA.util.djb2_hash(TWA.SerializeData()))
+    TWA.sync.SendAddonMessage("DataHash=" .. hex)
 end
 
 ---As a non-leader, request full sync of data (when you join the group for example)
 function TWA.sync.RequestFullSync()
     twadebug('i request sync')
     twaprint('Requesting full sync of data...')
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RequestSync=" .. TWA.me, "RAID")
+    TWA.sync.SendAddonMessage("RequestSync=" .. TWA.me)
+    twadebug('request sync sent!!!!!!!!!!!!!!!')
 end
 
 ---As a leader, broadcast a full sync of data (when a player requests it, or the group is converted from party to raid).
@@ -225,19 +231,19 @@ end
 function TWA.sync.BroadcastFullSync()
     if not IsRaidLeader() then return end
     twadebug('i broadcast sync')
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=start", "RAID")
+    TWA.sync.SendAddonMessage("FullSync=start")
     for _, data in next, TWA.data do
-        ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=" ..
+        TWA.sync.SendAddonMessage("FullSync=" ..
             data[1] .. '=' ..
             data[2] .. '=' ..
             data[3] .. '=' ..
             data[4] .. '=' ..
             data[5] .. '=' ..
             data[6] .. '=' ..
-            data[7], "RAID")
+            data[7])
     end
 
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "FullSync=end", "RAID")
+    TWA.sync.SendAddonMessage("FullSync=end")
 end
 
 ---Call to share your roster with other players. You can pass partial rosters when adding new names to save on bandwidth.
@@ -249,7 +255,7 @@ function TWA.sync.BroadcastRoster(roster, full)
     if not TWA.InRaid() and not (IsRaidLeader() or IsRaidOfficer()) then return end
 
     local broadcasttype = 'RosterBroadcast' .. (full and 'Full' or 'Partial')
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", broadcasttype .. "=start", "RAID")
+    TWA.sync.SendAddonMessage(broadcasttype .. "=start")
 
     ---@param class string
     ---@param names table<integer, string>
@@ -262,7 +268,7 @@ function TWA.sync.BroadcastRoster(roster, full)
                 namesSerialized = name
             end
         end
-        ChatThrottleLib:SendAddonMessage("ALERT", "TWA", broadcasttype .. "=" .. class .. "=" .. namesSerialized, "RAID")
+        TWA.sync.SendAddonMessage(broadcasttype .. "=" .. class .. "=" .. namesSerialized)
     end
 
     for class, _ in pairs(roster) do
@@ -279,7 +285,7 @@ function TWA.sync.BroadcastRoster(roster, full)
         end
     end
 
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", broadcasttype .. "=end", "RAID")
+    TWA.sync.SendAddonMessage(broadcasttype .. "=end")
 end
 
 ---Call to share that you've deleted a member of your roster.
@@ -288,19 +294,19 @@ end
 ---@param name string
 function TWA.sync.BroadcastRosterEntryDeleted(class, name)
     if not TWA.InRaid() and not (IsRaidLeader() or IsRaidOfficer()) then return end
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RosterEntryDeleted=" .. class .. "=" .. name, "RAID")
+    TWA.sync.SendAddonMessage("RosterEntryDeleted=" .. class .. "=" .. name)
 end
 
 function TWA.sync.BroadcastWipeTable()
-    ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "WipeTable", "RAID")
+    TWA.sync.SendAddonMessage("WipeTable")
 end
 
 --- Requests all assistant rosters in the raid by broadcasting hashes.
----
+--- <br/>
 --- The function hashes the rosters of all current assistants and broadcasts the hashes
 --- to the raid. If an assistant receives an incorrect hash of their roster, they will
 --- broadcast their roster.
----
+--- <br/>
 --- It also handles the case where rosters for certain assistants are missing by
 --- directly requesting their rosters.
 function TWA.sync.RequestAssistantRosters()
@@ -318,7 +324,7 @@ function TWA.sync.RequestAssistantRosters()
 
     -- broadcast the hashes. if the hash is not correct, the assistant will respond with their roster.
     for assistant, hash in pairs(hashes) do
-        ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RosterRequestHash=" .. assistant .. "=" .. hash, "RAID")
+        TWA.sync.SendAddonMessage("RosterRequestHash=" .. assistant .. "=" .. hash)
     end
 
     -- if you dont have an assistant's roster at all, request the roster directly
@@ -326,8 +332,24 @@ function TWA.sync.RequestAssistantRosters()
         if GetRaidRosterInfo(i) then
             local name, rank, _, _, _, _, z = GetRaidRosterInfo(i);
             if name ~= TWA.me and (rank == 1 or rank == 2) and hashes[name] == nil then
-                ChatThrottleLib:SendAddonMessage("ALERT", "TWA", "RosterRequest=" .. name, "RAID")
+                TWA.sync.SendAddonMessage("RosterRequest=" .. name)
             end
         end
     end
+end
+
+---Wrapper around ChatThrottleLib:SendAddonMessage, but most parameters optional to clean up code.
+---<br/>
+---Also takes an optional callback function, invoked when the message has been received by the player that sent it.
+---@param text string
+---@param prefix string|nil Default "TWA"
+---@param prio "BULK"|"NORMAL"|"ALERT"|nil Default "ALERT". Seems like only ALERT guarantees order.
+---@param chattype "PARTY"|"RAID"|"GUILD"|"OFFICER"|"BATTLEGROUND"|nil Default "RAID"
+---@param callbackFn function|nil Optional callback when message goes out the wire.
+function TWA.sync.SendAddonMessage(text, prefix, prio, chattype, callbackFn)
+    prefix = prefix and prefix or "TWA"
+    prio = prio and prio or "ALERT"
+    chattype = chattype and chattype or "RAID"
+
+    ChatThrottleLib:SendAddonMessage(prio, prefix, text, chattype)
 end
