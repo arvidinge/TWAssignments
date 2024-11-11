@@ -1,6 +1,7 @@
 local addonVer = "1.1.0.0" --don't use letters or numbers > 10
 local debugLevel = TWA.DEBUG.VERBOSE;
 
+TWA.version = addonVer;
 TWA.me = UnitName('player')
 
 local TWATargetsDropDown = CreateFrame('Frame', 'TWATargetsDropDown', UIParent, 'UIDropDownMenuTemplate')
@@ -407,27 +408,38 @@ end
 ---@param roster TWARoster The roster to serialize
 ---@return string serializedRoster The serialized roster
 function TWA.SerializeRoster(roster)
-    local serialized = ''
-    local classMax = table.getn(TWA.SORTED_CLASS_NAMES)
+    local classesWithNames = {}
     for i, class in ipairs(TWA.SORTED_CLASS_NAMES) do
         if roster[class] ~= nil and table.getn(roster[class]) > 0 then
-            local endCharClass = ','
-            if i == classMax then endCharClass = '' end
-
-            serialized = serialized .. class .. ':['
-            local nameMax = table.getn(roster[class])
-            for j, name in roster[class] do
-                local endCharName = ','
-                if j == nameMax then
-                    endCharName = ''
-                end
-
-                serialized = serialized .. name .. endCharName
-            end
-            serialized = serialized .. ']' .. endCharClass
+            table.insert(classesWithNames, class)
         end
     end
-    return serialized
+
+    local classesWithNamesLen = table.getn(classesWithNames)
+    local result = '{' .. (classesWithNamesLen > 0 and '\n' or '')
+
+    for i, class in ipairs(classesWithNames) do
+        result = result .. '  ['..'\"'..class..'\"'..'] = {'
+        for j, name in ipairs(roster[class]) do
+            result = result .. ' \"' .. name .. '\"' .. (j < table.getn(roster[class]) and ', ' or ' ')
+        end
+        result = result .. '}' .. (i < classesWithNamesLen and ',' or '') .. '\n'
+    end
+    return result .. '}'
+end
+
+---Serializes the current content of TWA.data
+function TWA.SerializeData()
+    local twaDataLen = table.getn(TWA.data)
+    local result = '{' .. (twaDataLen > 0 and '\n' or '')
+    for i = 1, twaDataLen do
+        result = result .. '  ['..i..'] = {'
+        for j = 1, 7 do
+            result = result .. ' \"' .. TWA.data[i][j] .. '\"' .. (j < 7 and ', ' or ' ')
+        end
+        result = result .. '}' .. (i < twaDataLen and ',' or '') .. '\n'
+    end
+    return result .. '}'
 end
 
 ---Remove foreign roster entries from people who are neither an assistant nor leader of the raid
