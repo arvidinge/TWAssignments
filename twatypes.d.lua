@@ -37,3 +37,12 @@ TWAWowColor = {}
 ---@field delay number
 ---@field callback function
 TWATimeoutCallback = {}
+
+---@class TWASendAddonMessageArgs
+---@field text string
+---@field prefix string|nil Default "TWA"
+---@field prio "BULK"|"NORMAL"|"ALERT"|nil Default "ALERT". Seems like only ALERT guarantees order.
+---@field chattype "PARTY"|"RAID"|"GUILD"|"OFFICER"|"BATTLEGROUND"|nil Default "RAID"
+---@field conversationId string|nil Optional conversationId for back-and-forth addon message conversations. Auto-generated when not provided.
+---@field callbackFn function|nil Optional callback when message goes out the wire.
+TWASendAddonMessageArgs = {}

@@ -599,11 +599,13 @@ TWA:SetScript("OnEvent", function()
         end, TWA.DOUBLE_EVENT_TIMEOUT)
     end
 
-    if event == 'CHAT_MSG_ADDON' and arg1 == "TWA" then
+    if event == 'CHAT_MSG_ADDON' and (arg1 == "TWA" or arg1 == "TWABW") then
         if debugLevel >= TWA.DEBUG.VERBOSE then
             twadebug(arg4 .. ' says: ' .. arg2)
         end
-        TWA.sync.handleSync(arg1, arg2, arg3, arg4)
+        if arg1 == "TWA" then
+            TWA.sync.parseMessage(arg1, arg2, arg3, arg4)
+        end
     end
 
     if event == 'CHAT_MSG_ADDON' and arg1 == "QH" then
@@ -2092,7 +2094,7 @@ end
 
 function SyncBW_OnClick()
     if not TWA_CanMakeChanges() then return end
-    TWA.sync.SendAddonMessage("BWSynch=start", "TWABW")
+    TWA.sync.SendAddonMessage_LEGACY("BWSynch=start", "TWABW")
     for _, data in next, TWA.data do
         local line = ''
         local dontPrintLine = true
@@ -2120,10 +2122,10 @@ function SyncBW_OnClick()
         end
 
         if not dontPrintLine then
-            TWA.sync.SendAddonMessage("BWSynch=" .. line, "TWABW")
+            TWA.sync.SendAddonMessage_LEGACY("BWSynch=" .. line, "TWABW")
         end
     end
-    TWA.sync.SendAddonMessage("BWSynch=end", "TWABW")
+    TWA.sync.SendAddonMessage_LEGACY("BWSynch=end", "TWABW")
 end
 
 ---@param delimiter string

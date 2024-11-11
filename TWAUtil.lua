@@ -68,3 +68,17 @@ end
 function TWA.util.mod(a, b)
     return a - math.floor(a / b) * b
 end
+
+--- Returns a new table containing a range of elements from the given table.
+--- @param tbl table The original table.
+--- @param startIdx integer The starting index of the range (inclusive).
+--- @param endIdx integer|nil The ending index of the range (inclusive). If nil, defaults to the last element in the table.
+--- @return table A new table containing elements from `startIdx` to `endIdx`.
+function TWA.util.tableSlice(tbl, startIdx, endIdx)
+    local result = {}
+    endIdx = endIdx or table.getn(tbl)
+    for i = startIdx, endIdx do
+        table.insert(result, tbl[i])
+    end
+    return result
+end
