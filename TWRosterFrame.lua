@@ -400,7 +400,7 @@ local function CalcTopOfClassSection(class)
     local heightOfPrecedingSections = 0;
     for i = 1, indexOfClass - 1 do
         heightOfPrecedingSections = heightOfPrecedingSections +
-        ClassSections[TWA.SORTED_CLASS_NAMES[i]].frame:GetHeight()
+            ClassSections[TWA.SORTED_CLASS_NAMES[i]].frame:GetHeight()
     end
     return -heightOfPrecedingSections;
 end

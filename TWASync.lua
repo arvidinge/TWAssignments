@@ -1,5 +1,6 @@
 function TWA.sync.handleSync(_, t, _, sender)
     local msgType = string.split(t, '=')[1]
+    -- twadebug('message type is first?: ' .. tostring(TWA.MESSAGE[string.split(t, '=')[1]] ~= nil))
 
     if msgType == TWA.MESSAGE.LoadTemplate then
         local args = string.split(t, '=')
@@ -224,8 +225,7 @@ end
 function TWA.sync.RequestFullSync()
     twadebug('i request sync')
     twaprint('Requesting full sync of data...')
-    TWA.sync.SendAddonMessage("RequestSync=" .. TWA.me)
-    twadebug('request sync sent!!!!!!!!!!!!!!!')
+    TWA.sync.SendAddonMessage(TWA.MESSAGE.RequestSync .. "=" .. TWA.me)
 end
 
 ---As a leader, broadcast a full sync of data (when a player requests it, or the group is converted from party to raid).
@@ -233,9 +233,9 @@ end
 function TWA.sync.BroadcastFullSync()
     if not IsRaidLeader() then return end
     twadebug('i broadcast sync')
-    TWA.sync.SendAddonMessage("FullSync=start")
+    TWA.sync.SendAddonMessage(TWA.MESSAGE.FullSync .. "=start")
     for _, data in next, TWA.data do
-        TWA.sync.SendAddonMessage("FullSync=" ..
+        TWA.sync.SendAddonMessage(TWA.MESSAGE.FullSync .. "=" ..
             data[1] .. '=' ..
             data[2] .. '=' ..
             data[3] .. '=' ..
@@ -245,7 +245,7 @@ function TWA.sync.BroadcastFullSync()
             data[7])
     end
 
-    TWA.sync.SendAddonMessage("FullSync=end")
+    TWA.sync.SendAddonMessage(TWA.MESSAGE.FullSync .. "=end")
 end
 
 ---Call to share your roster with other players. You can pass partial rosters when adding new names to save on bandwidth.
@@ -256,7 +256,7 @@ function TWA.sync.BroadcastRoster(roster, full)
     if full == nil then error("Argument 'full' is required and cannot be nil", 2) end
     if not TWA.InRaid() and not (IsRaidLeader() or IsRaidOfficer()) then return end
 
-    local broadcasttype = 'RosterBroadcast' .. (full and 'Full' or 'Partial')
+    local broadcasttype = full and TWA.MESSAGE.RosterBroadcastFull or TWA.MESSAGE.RosterBroadcastPartial
     TWA.sync.SendAddonMessage(broadcasttype .. "=start")
 
     ---@param class string
@@ -296,11 +296,11 @@ end
 ---@param name string
 function TWA.sync.BroadcastRosterEntryDeleted(class, name)
     if not TWA.InRaid() and not (IsRaidLeader() or IsRaidOfficer()) then return end
-    TWA.sync.SendAddonMessage("RosterEntryDeleted=" .. class .. "=" .. name)
+    TWA.sync.SendAddonMessage(TWA.MESSAGE.RosterEntryDeleted .. "=" .. class .. "=" .. name)
 end
 
 function TWA.sync.BroadcastWipeTable()
-    TWA.sync.SendAddonMessage("WipeTable")
+    TWA.sync.SendAddonMessage(TWA.MESSAGE.WipeTable)
 end
 
 --- Requests all assistant rosters in the raid by broadcasting hashes.
@@ -326,7 +326,7 @@ function TWA.sync.RequestAssistantRosters()
 
     -- broadcast the hashes. if the hash is not correct, the assistant will respond with their roster.
     for assistant, hash in pairs(hashes) do
-        TWA.sync.SendAddonMessage("RosterRequestHash=" .. assistant .. "=" .. hash)
+        TWA.sync.SendAddonMessage(TWA.MESSAGE.RosterRequestHash .. "=" .. assistant .. "=" .. hash)
     end
 
     -- if you dont have an assistant's roster at all, request the roster directly
@@ -334,7 +334,7 @@ function TWA.sync.RequestAssistantRosters()
         if GetRaidRosterInfo(i) then
             local name, rank, _, _, _, _, z = GetRaidRosterInfo(i);
             if name ~= TWA.me and (rank == 1 or rank == 2) and hashes[name] == nil then
-                TWA.sync.SendAddonMessage("RosterRequest=" .. name)
+                TWA.sync.SendAddonMessage(TWA.MESSAGE.RosterRequest .. "=" .. name)
             end
         end
     end

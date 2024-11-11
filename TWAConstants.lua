@@ -1,8 +1,8 @@
-TWA.CHECK_TIMEOUTS_EACH_N_FRAMES = 10 ---Check timeouts queued with TWA.setTimeout only every N frames. Since it's implemented with polling, this reduces CPU load a bit at the loss of precision. 
-TWA.DOUBLE_EVENT_TIMEOUT = 0.25 ---If part/raid events happen within this amount of time of one another, the first one is ignored. Unit is seconds.
-TWA.LOGIN_GRACE_PERIOD = 2.0 ---How long to wait before initializing the addon when logging in. Unit is seconds.
-TWA.SYNC_REQUEST_TIMEOUT = 3.0 ---How long to wait for incoming hashes after requesting full sync from the group. Unit is seconds.
-TWA.MAX_NAMES_PER_MESSAGE = 10 ---Limit of names broadcasted per message when broadcasting roster. (SendAddonMessage will silently drop anything past 255 characters)
+TWA.CHECK_TIMEOUTS_EACH_N_FRAMES = 10 ---Check timeouts queued with TWA.setTimeout only every N frames. Since it's implemented with polling, this reduces CPU load a bit at the loss of precision.
+TWA.DOUBLE_EVENT_TIMEOUT = 0.25       ---If part/raid events happen within this amount of time of one another, the first one is ignored. Unit is seconds.
+TWA.LOGIN_GRACE_PERIOD = 2.0          ---How long to wait before initializing the addon when logging in. Unit is seconds.
+TWA.SYNC_REQUEST_TIMEOUT = 3.0        ---How long to wait for incoming hashes after requesting full sync from the group. Unit is seconds.
+TWA.MAX_NAMES_PER_MESSAGE = 10        ---Limit of names broadcasted per message when broadcasting roster. (SendAddonMessage will silently drop anything past 255 characters)
 TWA.ROSTERFRAME_CLASSSECTION_BASE_HEIGHT = 30;
 TWA.ROSTERFRAME_CLASSSECTION_ENTRY_HEIGHT = 15;
 TWA.ROSTERFRAME_CLASSSECTION_EXPANDMARGIN = 6;

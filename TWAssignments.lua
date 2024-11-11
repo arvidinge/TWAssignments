@@ -313,7 +313,7 @@ function TWA.loadTemplate(template, load)
         TWA.loadedTemplate = template
         return true
     end
-    TWA.sync.SendAddonMessage("LoadTemplate=" .. template)
+    TWA.sync.SendAddonMessage(TWA.MESSAGE.LoadTemplate .. "=" .. template)
 end
 
 --testing
@@ -419,7 +419,7 @@ function TWA.SerializeRoster(roster)
     local result = '{' .. (classesWithNamesLen > 0 and '\n' or '')
 
     for i, class in ipairs(classesWithNames) do
-        result = result .. '  ['..'\"'..class..'\"'..'] = {'
+        result = result .. '  [' .. '\"' .. class .. '\"' .. '] = {'
         for j, name in ipairs(roster[class]) do
             result = result .. ' \"' .. name .. '\"' .. (j < table.getn(roster[class]) and ', ' or ' ')
         end
@@ -433,7 +433,7 @@ function TWA.SerializeData()
     local twaDataLen = table.getn(TWA.data)
     local result = '{' .. (twaDataLen > 0 and '\n' or '')
     for i = 1, twaDataLen do
-        result = result .. '  ['..i..'] = {'
+        result = result .. '  [' .. i .. '] = {'
         for j = 1, 7 do
             result = result .. ' \"' .. TWA.data[i][j] .. '\"' .. (j < 7 and ', ' or ' ')
         end
@@ -1372,7 +1372,7 @@ end
 
 function TWA.changeCell(xy, to, dontOpenDropdown)
     dontOpenDropdown = dontOpenDropdown and 1 or 0
-    TWA.sync.SendAddonMessage("ChangeCell=" .. xy .. "=" .. to .. "=" .. dontOpenDropdown)
+    TWA.sync.SendAddonMessage(TWA.MESSAGE.ChangeCell .. "=" .. xy .. "=" .. to .. "=" .. dontOpenDropdown)
     CloseDropDownMenus()
 end
 
@@ -1584,7 +1584,7 @@ end
 
 function AddLine_OnClick()
     if not TWA_CanMakeChanges() then return end
-    TWA.sync.SendAddonMessage("AddLine")
+    TWA.sync.SendAddonMessage(TWA.MESSAGE.AddLine)
 end
 
 function TWA.AddLine()
@@ -1637,7 +1637,7 @@ end
 
 function RemRow_OnClick(id)
     if not TWA_CanMakeChanges() then return end
-    TWA.sync.SendAddonMessage("RemRow=" .. id)
+    TWA.sync.SendAddonMessage(TWA.MESSAGE.RemRow .. "=" .. id)
 end
 
 function TWA.RemRow(id, sender)
@@ -1669,7 +1669,7 @@ function Reset_OnClick()
         button1 = ACCEPT,
         button2 = CANCEL,
         OnAccept = function()
-            TWA.sync.SendAddonMessage("Reset")
+            TWA.sync.SendAddonMessage(TWA.MESSAGE.Reset)
         end,
         timeout = 0,
         whileDead = true,
