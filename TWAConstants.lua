@@ -8,6 +8,22 @@ TWA.ROSTERFRAME_CLASSSECTION_ENTRY_HEIGHT = 15;
 TWA.ROSTERFRAME_CLASSSECTION_EXPANDMARGIN = 6;
 TWA.SORTED_CLASS_NAMES = { 'druid', 'hunter', 'mage', 'paladin', 'priest', 'rogue', 'shaman', 'warlock', 'warrior' }
 
+TWA.MESSAGE = {
+    LoadTemplate = "LoadTemplate",
+    RosterRequest = "RosterRequest",
+    RosterRequestHash = "RosterRequestHash",
+    RequestSync = "RequestSync",
+    FullSync = "FullSync",
+    RosterBroadcastPartial = "RosterBroadcastPartial",
+    RosterBroadcastFull = "RosterBroadcastFull",
+    RosterEntryDeleted = "RosterEntryDeleted",
+    RemRow = "RemRow",
+    ChangeCell = "ChangeCell",
+    WipeTable = "WipeTable",
+    Reset = "Reset",
+    AddLine = "AddLine",
+}
+
 TWA.DEBUG = {
     DISABLED = 1,
     NORMAL = 2,

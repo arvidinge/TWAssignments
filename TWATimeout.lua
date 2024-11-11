@@ -7,15 +7,6 @@ local function getTimeoutFrame()
     return getglobal(frameName) or CreateFrame("Frame", frameName)
 end
 
--- https://gist.github.com/jrus/3197011
-local function uuid()
-    local template = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
-    return string.gsub(template, '[xy]', function(c)
-        local v = (c == 'x') and math.random(0, 15) or math.random(8, 11)
-        return string.format('%x', v)
-    end)
-end
-
 local frameCounter = 0
 local function checkCallbacks()
     frameCounter = frameCounter + 1
@@ -48,7 +39,7 @@ end
 ---@return string id The id of the timeout
 function TWA.setTimeout(callback, delay)
     local waitFrame = getTimeoutFrame()
-    local timeoutId = uuid()
+    local timeoutId = TWA.util.uuid()
 
     ---@type TWATWATimeoutCallback
     local tc = {

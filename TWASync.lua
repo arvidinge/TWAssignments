@@ -1,5 +1,7 @@
 function TWA.sync.handleSync(_, t, _, sender)
-    if string.find(t, 'LoadTemplate=', 1, true) then
+    local msgType = string.split(t, '=')[1]
+
+    if msgType == TWA.MESSAGE.LoadTemplate then
         local args = string.split(t, '=')
         if not args[2] then
             return false
@@ -8,7 +10,7 @@ function TWA.sync.handleSync(_, t, _, sender)
         return true
     end
 
-    if string.find(t, 'RosterRequest=', 1, true) and sender ~= TWA.me then
+    if msgType == TWA.MESSAGE.RosterRequest and sender ~= TWA.me then
         local args = string.split(t, '=')
         local name = args[2]
         if name == TWA.me then
@@ -17,7 +19,7 @@ function TWA.sync.handleSync(_, t, _, sender)
         return true
     end
 
-    if string.find(t, 'RosterRequestHash=', 1, true) and sender ~= TWA.me then
+    if msgType == TWA.MESSAGE.RosterRequestHash and sender ~= TWA.me then
         local args = string.split(t, '=')
         if not args[2] or not args[3] then return false end
         local name = args[2]
@@ -32,13 +34,13 @@ function TWA.sync.handleSync(_, t, _, sender)
         return true
     end
 
-    if string.find(t, 'RequestSync=', 1, true) and sender ~= TWA.me then
+    if msgType == TWA.MESSAGE.RequestSync and sender ~= TWA.me then
         twadebug(sender .. ' requested full sync')
         if IsRaidLeader() then TWA.sync.BroadcastFullSync() end
         return true
     end
 
-    if string.find(t, 'FullSync=', 1, true) and sender ~= TWA.me then
+    if msgType == TWA.MESSAGE.FullSync and sender ~= TWA.me then
         local args = string.split(t, '=')
         if args[2] == 'start' then
             TWA.data = {}
@@ -72,7 +74,7 @@ function TWA.sync.handleSync(_, t, _, sender)
         return true
     end
 
-    if string.find(t, 'RosterBroadcastPartial=', 1, true) and sender ~= TWA.me then
+    if msgType == TWA.MESSAGE.RosterBroadcastPartial and sender ~= TWA.me then
         local args = string.split(t, '=')
         if args[2] == 'start' then
             -- todo: could add some handling for simultaneous incoming broadcasts:
@@ -93,7 +95,7 @@ function TWA.sync.handleSync(_, t, _, sender)
         return true
     end
 
-    if string.find(t, 'RosterBroadcastFull=', 1, true) and sender ~= TWA.me then
+    if msgType == TWA.MESSAGE.RosterBroadcastFull and sender ~= TWA.me then
         local args = string.split(t, '=')
         if args[2] == 'start' then
             TWA.foreignRosters[sender] = nil
@@ -115,7 +117,7 @@ function TWA.sync.handleSync(_, t, _, sender)
         return true
     end
 
-    if string.find(t, 'RosterEntryDeleted=', 1, true) and sender ~= TWA.me then
+    if msgType == TWA.MESSAGE.RosterEntryDeleted and sender ~= TWA.me then
         local args = string.split(t, '=')
         local class = args[2]
         local name = args[3]
@@ -134,7 +136,7 @@ function TWA.sync.handleSync(_, t, _, sender)
         return true
     end
 
-    if string.find(t, 'RemRow=', 1, true) then
+    if msgType == TWA.MESSAGE.RemRow then
         local rowEx = string.split(t, '=')
         if not rowEx[2] then
             return false
@@ -147,7 +149,7 @@ function TWA.sync.handleSync(_, t, _, sender)
         return true
     end
 
-    if string.find(t, 'ChangeCell=', 1, true) then
+    if msgType == TWA.MESSAGE.ChangeCell then
         local changeEx = string.split(t, '=')
         if not changeEx[2] or not changeEx[3] or not changeEx[4] then
             return false

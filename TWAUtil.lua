@@ -12,6 +12,16 @@ function TWA.util.tablePosOf(tbl, value)
     return nil
 end
 
+-- https://gist.github.com/jrus/3197011
+TWA.util.random = math.random
+function TWA.util.uuid()
+    local template = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+    return string.gsub(template, '[xy]', function(c)
+        local v = (c == 'x') and TWA.util.random(0, 15) or TWA.util.random(8, 11)
+        return string.format('%x', v)
+    end)
+end
+
 ---Check if a value exists in a simple list.
 ---The table should be a sequential list of comparable values (e.g., numbers or strings).
 ---@param tbl table<integer, any> -- Sequential list to search.
