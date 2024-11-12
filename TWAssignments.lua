@@ -45,13 +45,8 @@ function TWA_CanMakeChanges()
     if not TWA.InRaid() then
         twaprint('You must be in a raid group to do that.')
         return false
-    end
-    if not ((IsRaidLeader()) or (IsRaidOfficer())) then
+    elseif not ((IsRaidLeader()) or (IsRaidOfficer())) then
         twaprint("You need to be a raid leader or assistant to do that.")
-        return false
-    end
-    if not TWA._leaderOnline then
-        twaprint("The leader of the group must be online to make any changes.")
         return false
     end
     return true
@@ -393,14 +388,16 @@ function TWA.GetCompleteRoster()
     return completeRoster
 end
 
+---Is the player in a party?
 ---@return boolean
 function TWA.InParty()
-    return UnitInParty("player") == 1
+    return (GetNumPartyMembers() > 0) or TWA.InRaid()
 end
 
+---Is the player in a raid group?
 ---@return boolean
 function TWA.InRaid()
-    return UnitInRaid("player") == 1
+    return GetNumRaidMembers() > 0
 end
 
 ---Serialize a roster
@@ -429,7 +426,8 @@ function TWA.SerializeRoster(roster)
 end
 
 ---Serializes the current content of TWA.data
-function TWA.SerializeData()
+---@return string dataStr The contents of TWA.data serialized to a string
+function TWA.SerializeCurrentData()
     local twaDataLen = table.getn(TWA.data)
     local result = '{' .. (twaDataLen > 0 and '\n' or '')
     for i = 1, twaDataLen do
@@ -502,43 +500,49 @@ function TWA.PlayerGroupStateUpdate()
         if TWA.InParty() then
             -- logged in while in party
             setGroupState('party')
-        else
-            twadebug('not in party')
-        end
-        if TWA.InRaid() then
-            setGroupState('raid')
-            -- logged in while in raid group
-            if IsRaidLeader() then
-                TWA.sync.BroadcastFullSync() -- overwrite any changes made by assistants while you were offline
-            else
-                TWA.sync.RequestFullSync()
+            if TWA.InRaid() then
+                -- logged in while in raid
+                setGroupState('raid')
             end
+            TWA.sync.RequestFullSync()
             TWA.sync.RequestAssistantRosters()
-        else
-            twadebug('not in raid')
         end
     elseif TWA._playerGroupState == 'alone' and TWA.InParty() then
-        -- joined a group
+        -- joined a group of some kind
         setGroupState('party')
-
         if TWA.InRaid() then
             -- joined a raid
             setGroupState('raid')
             TWA.sync.RequestFullSync()
             TWA.sync.RequestAssistantRosters()
+        else
+            -- joined a party
+            if GetNumPartyMembers() == 1 then
+                -- you and the other player just formed the party.
+                if not IsPartyLeader() then
+                    TWA.sync.RequestFullSync()
+                    TWA.sync.RequestAssistantRosters()
+                end
+            else
+                -- joined an already existing party.
+                TWA.sync.RequestFullSync()
+                TWA.sync.RequestAssistantRosters()
+            end
         end
     elseif (TWA._playerGroupState == 'party' or TWA._playerGroupState == 'raid') and not TWA.InParty() then
         -- left the group
+        TWA._syncConversations = {}
+        for cid, tid in pairs(TWA.syncRequestTimeouts) do
+            twaprint("Leaving group - sync cancelled.")
+            TWA.timeout.clear(tid)
+        end
         TWA.foreignRosters = {}
         TWA.persistForeignRosters()
+        
         setGroupState('alone')
     elseif TWA._playerGroupState == 'party' and TWA.InRaid() then
         -- party was converted to raid
         setGroupState('raid')
-        if IsRaidLeader() then
-            TWA.sync.BroadcastFullSync()
-            TWA.sync.RequestAssistantRosters()
-        end
     end
 end
 
@@ -575,7 +579,7 @@ TWA:SetScript("OnEvent", function()
     end
 
     if event == "PLAYER_LOGIN" then
-        TWA.setTimeout(function()
+        TWA.timeout.set(function()
             twadebug('initializing group state')
             TWA.InitializeGroupState()
         end, TWA.LOGIN_GRACE_PERIOD)
@@ -584,7 +588,7 @@ TWA:SetScript("OnEvent", function()
     if event == "RAID_ROSTER_UPDATE" then
         twadebug("RAID_ROSTER_UPDATE")
         if TWA.partyAndRaidCombinedEventTimeoutId ~= nil then
-            TWA.clearTimeout(TWA.partyAndRaidCombinedEventTimeoutId)
+            TWA.timeout.clear(TWA.partyAndRaidCombinedEventTimeoutId)
             TWA.partyAndRaidCombinedEventTimeoutId = nil
         end
         TWA.PlayerGroupStateUpdate()
@@ -594,7 +598,7 @@ TWA:SetScript("OnEvent", function()
 
     if event == "PARTY_MEMBERS_CHANGED" then
         twadebug("PARTY_MEMBERS_CHANGED")
-        TWA.partyAndRaidCombinedEventTimeoutId = TWA.setTimeout(function()
+        TWA.partyAndRaidCombinedEventTimeoutId = TWA.timeout.set(function()
             TWA.PlayerGroupStateUpdate()
         end, TWA.DOUBLE_EVENT_TIMEOUT)
     end
@@ -604,7 +608,7 @@ TWA:SetScript("OnEvent", function()
             twadebug(arg4 .. ' says: ' .. arg2)
         end
         if arg1 == "TWA" then
-            TWA.sync.parseMessage(arg1, arg2, arg3, arg4)
+            TWA.sync.processPacket(arg1, arg2, arg3, arg4)
         end
     end
 
@@ -679,19 +683,6 @@ function TWA.persistForeignRosters()
     TWA_FOREIGN_ROSTERS = TWA.foreignRosters
 end
 
----@param prev boolean
----@param new boolean
-function TWA.OnLeaderOnlineUpdate(prev, new)
-    if prev == new then return end
-    if prev == false and new == true then
-        TWA._leaderOnline = true
-        twadebug('leader just came online')
-    elseif prev == true and new == false then
-        TWA._leaderOnline = false
-        twadebug('leader just disconnected')
-    end
-end
-
 ---Call when a player was promoted to raid leader or assist.
 ---They should broadcast their roster.
 ---@param name string
@@ -722,7 +713,7 @@ function TWA.CheckIfPromoted(name, newRank)
     end
 end
 
-function TWA.CheckIfDemoted(name) -- new rank is always "normal" (neither officer nor leader)
+function TWA.CheckIfDemoted(name) -- new rank is always "normal" (neither assistant nor leader)
     if TWA._leader == name or TWA._assistants[name] then
         TWA.PlayerWasDemoted(name)
     end
@@ -746,13 +737,6 @@ function TWA.updateRaidStatus()
             if rank == 2 then -- leader
                 TWA.CheckIfPromoted(name, rank)
                 newLeader = name
-                local prevState = TWA._leaderOnline
-                if z == "Offline" then
-                    TWA._leaderOnline = false
-                else
-                    TWA._leaderOnline = true
-                end
-                TWA.OnLeaderOnlineUpdate(prevState, TWA._leaderOnline)
             elseif rank == 1 then -- assist
                 TWA.CheckIfPromoted(name, rank)
                 TWA._assistants[name] = true

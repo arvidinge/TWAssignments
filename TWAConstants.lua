@@ -22,6 +22,9 @@ TWA.MESSAGE = {
     WipeTable = "WipeTable",
     Reset = "Reset",
     AddLine = "AddLine",
+    DataHash = "DataHash",
+    ConcludeSync = "ConcludeSync",
+    SyncPlayerSelected = "SyncPlayerSelected"
 }
 
 TWA.DEBUG = {

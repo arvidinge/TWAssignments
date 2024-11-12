@@ -37,9 +37,9 @@ end
 ---@param callback function The function to call after the delay
 ---@param delay number Number of seconds to delay, accepts decimals
 ---@return string id The id of the timeout
-function TWA.setTimeout(callback, delay)
+function TWA.timeout.set(callback, delay)
     local waitFrame = getTimeoutFrame()
-    local timeoutId = TWA.util.uuid()
+    local timeoutId = TWA.sync.newId()
 
     ---@type TWATWATimeoutCallback
     local tc = {
@@ -56,7 +56,7 @@ end
 
 ---Cancel an already queued timeout
 ---@param id string The id of the timeout
-function TWA.clearTimeout(id)
+function TWA.timeout.clear(id)
     if id == nil then return end
     ---@type integer|nil
     local timeoutToDelete = nil

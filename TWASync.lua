@@ -1,28 +1,76 @@
-function TWA.sync.handleLegacyMessage(t, sender)
-    -- todo: warn about raid member that has outdated version
+function TWA.sync.processMessage_LEGACY(message, sender)
+    -- todo: warn about raid member that has outdated version. show suggestion to force sync for them.
     return true
 end
 
-local function parseHeaders(message)
-    local headersList = string.split(string.split(string.sub(message, 2), ']:')[1], '=')
-    local version, conversationId = headersList[1], headersList[2]
-    return version, conversationId
+---Extracts the headers from a packet
+---@param strPacket string
+---@return TWAPacketHeaders headers The parsed headers of the packet.
+local function getHeaders(strPacket)
+    local headersList = string.split(string.split(string.sub(strPacket, 2), ']:')[1], '=')
+    ---@type TWAPacketHeaders
+    return {
+        version = headersList[1],
+        messageId = headersList[2],
+        conversationId = headersList[3],
+        RESERVED_1 = headersList[4],
+        RESERVED_2 = headersList[5],
+        RESERVED_3 = headersList[6]
+    }
 end
 
-local function parseMessage(message)
-    return string.split(message, ']:')[2]
+---Extracts the message from a packet
+local function getMessage(packet)
+    return string.split(packet, ']:')[2]
 end
 
-function TWA.sync.parseMessage(_, packet, _, sender)
-    if TWA.MESSAGE[string.split(packet, '=')[1]] ~= nil then
-        return TWA.sync.handleLegacyMessage(packet, sender)
-    end
+---comment
+---@param strPacket any
+---@return TWAPacket packet
+local function parseStrPacket(strPacket)
+    local headersList = string.split(string.split(string.sub(strPacket, 2), ']:')[1], '=')
+    ---@type TWAPacketHeaders
+    local headers = {
+        version = headersList[1],
+        messageId = headersList[2],
+        conversationId = headersList[3],
+        RESERVED_1 = headersList[4],
+        RESERVED_2 = headersList[5],
+        RESERVED_3 = headersList[6]
+    }
 
-    local version, conversationId = parseHeaders(packet)
-    local msg = parseMessage(packet)
+    local msg = string.split(strPacket, ']:')[2]
     local parts = string.split(msg, '=')
     local msgType = parts[1]
     local args = TWA.util.tableSlice(parts, 2)
+
+    ---@type TWAPacketMessage
+    local message = {
+        type = msgType,
+        args = args
+    }
+
+    ---@type TWAPacket
+    return {
+        headers = headers,
+        message = message
+    }
+end
+
+function TWA.sync.processPacket(_, strPacket, _, sender)
+    if TWA.MESSAGE[string.split(strPacket, '=')[1]] ~= nil then
+        return TWA.sync.processMessage_LEGACY(strPacket, sender)
+    end
+
+    ---@type TWAPacket
+    local packet = parseStrPacket(strPacket)
+    local headers = packet.headers
+    local msgType = packet.message.type
+    local args = packet.message.args
+
+    if TWA._messageCallbacks[headers.messageId] then
+        TWA._messageCallbacks[headers.messageId](packet)
+    end
 
     if msgType == TWA.MESSAGE.LoadTemplate then
         if not args[1] then
@@ -35,7 +83,7 @@ function TWA.sync.parseMessage(_, packet, _, sender)
     if msgType == TWA.MESSAGE.RosterRequest and sender ~= TWA.me then
         local name = args[1]
         if name == TWA.me then
-            TWA.sync.BroadcastRoster(TWA.roster, true, conversationId)
+            TWA.sync.BroadcastRoster(TWA.roster, true, headers.conversationId)
         end
         return true
     end
@@ -49,15 +97,29 @@ function TWA.sync.parseMessage(_, packet, _, sender)
         local myHash = TWA.util.djb2_hash(TWA.SerializeRoster(TWA.roster))
 
         if theirHash ~= myHash then
-            TWA.sync.BroadcastRoster(TWA.roster, true, conversationId)
+            TWA.sync.BroadcastRoster(TWA.roster, true, headers.conversationId)
         end
         return true
     end
 
-    if msgType == TWA.MESSAGE.RequestSync and sender ~= TWA.me then
+    if msgType == TWA.MESSAGE.DataHash then
+        local hash = args[1]
+        if not TWA._syncConversations[headers.conversationId] then return end -- i didnt start this conversation
+        if not TWA._syncConversations[headers.conversationId][hash] then
+            TWA._syncConversations[headers.conversationId][hash] = {}
+        end
+        table.insert(TWA._syncConversations[headers.conversationId][hash], sender)
+        -- todo handle sync timeout and then select player to broadcast from hashes
+    end
+
+    if msgType == TWA.MESSAGE.RequestSync then
         twadebug(sender .. ' requested full sync')
-        TWA.sync.BroadcastDataHash(conversationId)
+        TWA.sync.BroadcastDataHash(headers.conversationId)
         return true
+    end
+
+    if msgType == TWA.MESSAGE.SyncPlayerSelected and args[1] == TWA.me then
+        TWA.sync.BroadcastFullSync(headers.conversationId)
     end
 
     if msgType == TWA.MESSAGE.FullSync and sender ~= TWA.me then
@@ -66,9 +128,9 @@ function TWA.sync.parseMessage(_, packet, _, sender)
         elseif args[1] == 'end' then
             TWA.fillRaidData()
             TWA.PopulateTWA()
-            if not TWA._firstSyncComplete then
+            if TWA._syncConversations[headers.conversationId] then
+                TWA._syncConversations[headers.conversationId] = nil;
                 twaprint('Full sync complete')
-                TWA._firstSyncComplete = true
             end
         else
             if args[1] and args[2] and args[3] and args[4] and args[5] and args[6] and args[7] then
@@ -223,23 +285,132 @@ function TWA.sync.handleQHSync(pre, t, ch, sender)
 end
 
 function TWA.sync.BroadcastDataHash(conversationId)
-    local hex = TWA.util.hashToHex(TWA.util.djb2_hash(TWA.SerializeData()))
-    TWA.sync.SendAddonMessage({ text = "DataHash=" .. hex, conversationId = conversationId })
+    local hex = TWA.util.hashToHex(TWA.util.djb2_hash(TWA.SerializeCurrentData()))
+
+    TWA.sync.SendAddonMessage({
+        text = TWA.MESSAGE.DataHash .. "=" .. hex,
+        conversationId = conversationId
+    })
 end
 
----As a non-leader, request full sync of data (when you join the group for example)
+---Acknowledge that everyone had the correct hash and that no player will be selected to broadcast a full sync.
+function TWA.sync.ConcludeSync(conversationId)
+    TWA.sync.SendAddonMessage({
+        text = TWA.MESSAGE.ConcludeSync,
+        conversationId = conversationId
+    })
+end
+
+---Ask a player that has the correct hash to broadcast full sync.
+function TWA.sync.SelectPlayerToSync(player, conversationId)
+    local debug = function(str) twadebug('cid ' .. conversationId .. ': ' .. str) end
+    debug('selected player ' .. player .. ' for sync')
+
+    TWA.sync.SendAddonMessage({
+        text = TWA.MESSAGE.SyncPlayerSelected .. "=" .. player,
+        conversationId = conversationId
+    })
+end
+
+---Initiate a full sync (when you join the group for example)
 function TWA.sync.RequestFullSync()
     twadebug('i request sync')
+    local conversationId = TWA.sync.newId()
     twaprint('Requesting full sync of data...')
-    TWA.sync.SendAddonMessage(TWA.MESSAGE.RequestSync .. "=" .. TWA.me)
+    TWA._syncConversations[conversationId] = {}
+    TWA.sync.SendAddonMessage({
+        text = TWA.MESSAGE.RequestSync .. "=" .. TWA.me,
+        conversationId = conversationId,
+        callbackFn = function(packet)
+            local debug = function(str) twadebug('cid ' .. conversationId .. ': ' .. str) end
+            debug('sync request initiated. timeout in ' .. TWA.SYNC_REQUEST_TIMEOUT .. ' seconds.')
+            TWA.syncRequestTimeouts[conversationId] = TWA.timeout.set(function()
+                debug('sync request timeout')
+
+                local totalHashes = 0
+                for _, _ in pairs(TWA._syncConversations[conversationId]) do
+                    totalHashes = totalHashes + 1
+                end
+                debug('received hashes: ' .. totalHashes)
+                if totalHashes == 0 then
+                    debug('no hashes received')
+                    twaprint('No response from group members.')
+                    return
+                end
+                local hashCounts = {} ---@type table<string, integer>
+                local maxCount = -1
+                for hash, players in pairs(TWA._syncConversations[conversationId]) do
+                    hashCounts[hash] = table.getn(players)
+                    debug('hash: ' .. hash .. ', amount: ' .. hashCounts[hash])
+                    if hashCounts[hash] > maxCount then maxCount = hashCounts[hash] end
+                end
+                debug('maxCount: ' .. maxCount)
+                local biggestHashes = {} ---@type table<integer, string>
+                for hash, players in pairs(TWA._syncConversations[conversationId]) do
+                    if table.getn(players) == maxCount then table.insert(biggestHashes, hash) end
+                end
+                if table.getn(biggestHashes) > 1 then
+                    twaprint('There were conflicts when synchronizing tables from different players.')
+                    twaprint('The data from the player with the highest rank will be selected.')
+
+                    ---@type table<'leader'|'assistants'|'plebs', table<string, string>>
+                    local playerRanks = {
+                        ['leader'] = {},
+                        ['assistants'] = {},
+                        ['plebs'] = {}
+                    }
+                    for _, hash in ipairs(biggestHashes) do
+                        for _, player in TWA._syncConversations[conversationId][hash] do
+                            if player == TWA._leader then
+                                playerRanks['leader'][player] = hash
+                            elseif TWA._assistants[player] then
+                                playerRanks['assistants'][player] = hash
+                            else
+                                playerRanks['plebs'][player] = hash
+                            end
+                        end
+                    end
+                    for player, hash in pairs(playerRanks['leader']) do
+                        TWA.sync.SelectPlayerToSync(player, conversationId)
+                        return
+                    end
+                    for player, hash in pairs(playerRanks['assistants']) do
+                        TWA.sync.SelectPlayerToSync(player, conversationId)
+                        return
+                    end
+                    for player, hash in pairs(playerRanks['plebs']) do
+                        TWA.sync.SelectPlayerToSync(player, conversationId)
+                        return
+                    end
+                else
+                    -- one winner hash.
+                    -- if anyone has a mismatched hash then select any player with the majority hash to broadcast.
+                    -- Otherwise, end the conversation.
+                    local uniqueHashList = {} ---@type table<integer, string>
+                    for hash, _ in pairs(TWA._syncConversations[conversationId]) do
+                        if not TWA.util.tableContains(uniqueHashList, hash) then
+                            table.insert(uniqueHashList, hash)
+                        end
+                    end
+                    if table.getn(uniqueHashList) > 1 then
+                        TWA.sync.SelectPlayerToSync(TWA._syncConversations[conversationId][biggestHashes[1]][1], conversationId)
+                    else
+                        TWA.sync.ConcludeSync(conversationId)
+                    end
+
+                    
+                end
+            end, TWA.SYNC_REQUEST_TIMEOUT)
+        end,
+    })
 end
 
 ---As a leader, broadcast a full sync of data (when a player requests it, or the group is converted from party to raid).
 ---Does nothing if not a raid leader.
 ---@param conversationId string|nil Provide if broadcasting as part of conversation
 function TWA.sync.BroadcastFullSync(conversationId)
-    if not IsRaidLeader() then return end
-    conversationId = conversationId and conversationId or TWA.sync.newConversationId()
+    -- if not IsRaidLeader() then return end
+    conversationId = conversationId and conversationId or TWA.sync.newId()
     twadebug('i broadcast sync')
     TWA.sync.SendAddonMessage({
         text = TWA.MESSAGE.FullSync .. "=start",
@@ -272,9 +443,9 @@ end
 ---@param conversationId string|nil Provide if broadcasting as part of conversation
 function TWA.sync.BroadcastRoster(roster, full, conversationId)
     if full == nil then error("Argument 'full' is required and cannot be nil", 2) end
-    if not TWA.InRaid() and not (IsRaidLeader() or IsRaidOfficer()) then return end
+    -- if not TWA.InRaid() and not (IsRaidLeader() or IsRaidOfficer()) then return end
 
-    conversationId = conversationId and conversationId or TWA.sync.newConversationId()
+    conversationId = conversationId and conversationId or TWA.sync.newId()
     local broadcasttype = full and TWA.MESSAGE.RosterBroadcastFull or TWA.MESSAGE.RosterBroadcastPartial
     TWA.sync.SendAddonMessage({
         text = broadcasttype .. "=start",
@@ -323,7 +494,6 @@ end
 ---@param class TWAWowClass
 ---@param name string
 function TWA.sync.BroadcastRosterEntryDeleted(class, name)
-    if not TWA.InRaid() and not (IsRaidLeader() or IsRaidOfficer()) then return end
     TWA.sync.SendAddonMessage(TWA.MESSAGE.RosterEntryDeleted .. "=" .. class .. "=" .. name)
 end
 
@@ -331,7 +501,7 @@ function TWA.sync.BroadcastWipeTable()
     TWA.sync.SendAddonMessage(TWA.MESSAGE.WipeTable)
 end
 
---- Requests all assistant rosters in the raid by broadcasting hashes.
+--- Requests all assistant rosters (and leader roster) in the raid by broadcasting hashes.
 --- <br/>
 --- The function hashes the rosters of all current assistants and broadcasts the hashes
 --- to the raid. If an assistant receives an incorrect hash of their roster, they will
@@ -339,9 +509,9 @@ end
 --- <br/>
 --- It also handles the case where rosters for certain assistants are missing by
 --- directly requesting their rosters.
+--- <br/>
+--- If in a party, only the leader's roster is requested.
 function TWA.sync.RequestAssistantRosters()
-    if not (TWA.InRaid()) then return end
-
     ---@type table<string, string>
     local hashes = {}
 
@@ -354,15 +524,36 @@ function TWA.sync.RequestAssistantRosters()
 
     -- broadcast the hashes. if the hash is not correct, the assistant will respond with their roster.
     for assistant, hash in pairs(hashes) do
-        TWA.sync.SendAddonMessage({text = TWA.MESSAGE.RosterRequestHash .. "=" .. assistant .. "=" .. hash})
+        local cid = TWA.sync.newId()
+        TWA.sync.SendAddonMessage({
+            text = TWA.MESSAGE.RosterRequestHash .. "=" .. assistant .. "=" .. hash,
+            conversationId = cid
+        })
     end
 
-    -- if you dont have an assistant's roster at all, request the roster directly
-    for i = 1, GetNumRaidMembers() do
-        if GetRaidRosterInfo(i) then
-            local name, rank, _, _, _, _, z = GetRaidRosterInfo(i);
-            if name ~= TWA.me and (rank == 1 or rank == 2) and hashes[name] == nil then
-                TWA.sync.SendAddonMessage(TWA.MESSAGE.RosterRequest .. "=" .. name)
+    -- For missing hashes, request the roster directly
+    if TWA.InRaid() then
+        for i = 1, GetNumRaidMembers() do
+            if GetRaidRosterInfo(i) then
+                local name, rank, _, _, _, _, z = GetRaidRosterInfo(i);
+                if name ~= TWA.me and (rank == 1 or rank == 2) and hashes[name] == nil then
+                    local cid = TWA.sync.newId()
+                    TWA.sync.SendAddonMessage({
+                        text = TWA.MESSAGE.RosterRequest .. "=" .. name,
+                        conversationId = cid
+                    })
+                end
+            end
+        end
+    elseif TWA.InParty() then
+        if not IsPartyLeader() then
+            local leader = (GetPartyLeaderIndex() == 0 and TWA.me or UnitName("party" .. GetPartyLeaderIndex()))
+            if hashes[leader] == nil then
+                local cid = TWA.sync.newId()
+                TWA.sync.SendAddonMessage({
+                    text = TWA.MESSAGE.RosterRequest .. "=" .. leader,
+                    conversationId = cid
+                })
             end
         end
     end
@@ -385,21 +576,25 @@ function TWA.sync.SendAddonMessage_LEGACY(text, prefix, prio, chattype, callback
     ChatThrottleLib:SendAddonMessage(prio, prefix, text, chattype)
 end
 
-function TWA.sync.newConversationId()
-    return TWA.util.hashToHex(TWA.util.djb2_hash(TWA.util.uuid()))
+function TWA.sync.newId()
+    return TWA.util.hashToHex(math.random(1, 2147483647))
 end
 
 ---Wrapper around ChatThrottleLib:SendAddonMessage, but most parameters optional to clean up code.
 ---<br/>
 ---Also takes an optional callback function, invoked when the message has been received by the player that sent it.
 ---@param arg string|TWASendAddonMessageArgs Either provide just the message as a string, or provide a table if you want to overwrite defaults of the optional values.
+---@return string messageId Id of the message sent
 function TWA.sync.SendAddonMessage(arg)
     -- set defaults
     local text = arg
     local prefix = "TWA";
     local prio = "ALERT";
-    local chattype = "RAID";
-    local conversationId = TWA.sync.newConversationId();
+    local chattype = TWA._playerGroupState == 'party' and "PARTY" or "RAID";
+    local conversationId = '-';
+
+    local messageId = TWA.sync.newId();
+    local addonVersion = TWA.version;
 
     -- overwrite with table values if arg is table
     if type(arg) == "table" then
@@ -408,11 +603,15 @@ function TWA.sync.SendAddonMessage(arg)
         prio = arg.prio and arg.prio or prio
         chattype = arg.chattype and arg.chattype or chattype
         conversationId = arg.conversationId and arg.conversationId or conversationId
+
+        if arg.callbackFn ~= nil then
+            TWA._messageCallbacks[messageId] = arg.callbackFn
+        end
     end
 
-    local addonVersion = TWA.version;
     local headers = {}
     table.insert(headers, addonVersion)
+    table.insert(headers, messageId)
     table.insert(headers, conversationId)
     table.insert(headers, '-') -- reserved for future use
     table.insert(headers, '-') -- reserved for future use
@@ -426,4 +625,6 @@ function TWA.sync.SendAddonMessage(arg)
     finalMessage = finalMessage .. ']:' .. text
 
     ChatThrottleLib:SendAddonMessage(prio, prefix, finalMessage, chattype)
+
+    return messageId;
 end

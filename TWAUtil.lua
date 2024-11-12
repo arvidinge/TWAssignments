@@ -14,13 +14,6 @@ end
 
 -- https://gist.github.com/jrus/3197011
 TWA.util.random = math.random
-function TWA.util.uuid()
-    local template = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
-    return string.gsub(template, '[xy]', function(c)
-        local v = (c == 'x') and TWA.util.random(0, 15) or TWA.util.random(8, 11)
-        return string.format('%x', v)
-    end)
-end
 
 ---Check if a value exists in a simple list.
 ---The table should be a sequential list of comparable values (e.g., numbers or strings).
@@ -41,7 +34,7 @@ function TWA.util.djb2_hash(str)
     local hash = 5381 -- Starting constant
     for i = 1, string.len(str) do
         local byte = string.byte(str, i)
-        hash = TWA.util.mod(((hash * 33) + byte), 2147483648) -- Keep it within 32 bits (signed)
+        hash = TWA.util.mod(((hash * 33) + byte), 2147483647) -- Keep it within signed 32 bits
     end
 
     return hash
