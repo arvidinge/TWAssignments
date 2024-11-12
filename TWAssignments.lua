@@ -522,6 +522,8 @@ function TWA.PlayerGroupStateUpdate()
                 if not IsPartyLeader() then
                     TWA.sync.RequestFullSync()
                     TWA.sync.RequestAssistantRosters()
+                else
+                    TWA._firstSyncComplete = true; -- edge case, set true so that the leader will respond to the sync.
                 end
             else
                 -- joined an already existing party.
@@ -531,6 +533,7 @@ function TWA.PlayerGroupStateUpdate()
         end
     elseif (TWA._playerGroupState == 'party' or TWA._playerGroupState == 'raid') and not TWA.InParty() then
         -- left the group
+        TWA._firstSyncComplete = false
         TWA._syncConversations = {}
         for cid, tid in pairs(TWA.syncRequestTimeouts) do
             twaprint("Leaving group - sync cancelled.")

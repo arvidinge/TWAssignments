@@ -8,6 +8,9 @@ TWA._leader = nil ---@type string|nil
 TWA._playerGroupState = nil ---@type TWAGroupState
 TWA._playerGroupStateInitialized = false;
 TWA._raidStateInitialized = false;
+TWA._firstSyncComplete = false;
+---@type table<string, boolean> table<conversationId, boolean>
+TWA._incomingFullSyncs = {}
 
 ---Keep track of hashes of data given by other players when you join the group, so that you can select a player to broadcast the data table.<br/>
 ---Example structure:

@@ -3,27 +3,6 @@ function TWA.sync.processMessage_LEGACY(message, sender)
     return true
 end
 
----Extracts the headers from a packet
----@param strPacket string
----@return TWAPacketHeaders headers The parsed headers of the packet.
-local function getHeaders(strPacket)
-    local headersList = string.split(string.split(string.sub(strPacket, 2), ']:')[1], '=')
-    ---@type TWAPacketHeaders
-    return {
-        version = headersList[1],
-        messageId = headersList[2],
-        conversationId = headersList[3],
-        RESERVED_1 = headersList[4],
-        RESERVED_2 = headersList[5],
-        RESERVED_3 = headersList[6]
-    }
-end
-
----Extracts the message from a packet
-local function getMessage(packet)
-    return string.split(packet, ']:')[2]
-end
-
 ---comment
 ---@param strPacket any
 ---@return TWAPacket packet
@@ -76,7 +55,7 @@ function TWA.sync.processPacket(_, strPacket, _, sender)
         if not args[1] then
             return false
         end
-        TWA.loadTemplate(args[2], true)
+        TWA.loadTemplate(args[1], true)
         return true
     end
 
@@ -112,8 +91,7 @@ function TWA.sync.processPacket(_, strPacket, _, sender)
         -- todo handle sync timeout and then select player to broadcast from hashes
     end
 
-    if msgType == TWA.MESSAGE.RequestSync then
-        twadebug(sender .. ' requested full sync')
+    if (msgType == TWA.MESSAGE.RequestSync) and (sender ~= TWA.me) and (TWA._firstSyncComplete) then
         TWA.sync.BroadcastDataHash(headers.conversationId)
         return true
     end
@@ -125,14 +103,19 @@ function TWA.sync.processPacket(_, strPacket, _, sender)
     if msgType == TWA.MESSAGE.FullSync and sender ~= TWA.me then
         if args[1] == 'start' then
             TWA.data = {}
+            TWA._incomingFullSyncs[headers.conversationId] = true
         elseif args[1] == 'end' then
+            if not TWA._incomingFullSyncs[headers.conversationId] then return true end
             TWA.fillRaidData()
             TWA.PopulateTWA()
             if TWA._syncConversations[headers.conversationId] then
                 TWA._syncConversations[headers.conversationId] = nil;
                 twaprint('Full sync complete')
             end
+            TWA._firstSyncComplete = true
+            TWA._incomingFullSyncs[headers.conversationId] = nil
         else
+            if not TWA._incomingFullSyncs[headers.conversationId] then return true end
             if args[1] and args[2] and args[3] and args[4] and args[5] and args[6] and args[7] then
                 local index = table.getn(TWA.data) + 1
                 TWA.data[index] = {}
