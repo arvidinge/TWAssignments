@@ -373,6 +373,13 @@ function TWA.sync.RequestFullSync()
                     -- if anyone has a mismatched hash then select any player with the majority hash to broadcast.
                     -- Otherwise, end the conversation.
                     local uniqueHashList = {} ---@type table<integer, string>
+                    if not TWA._firstSyncComplete then
+                        -- Add my hash to uniqueHashList if i just joined, causing a full sync if it mismatches but without considering it for majority hash
+                        local myHash = TWA.util.hashToHex(TWA.util.djb2_hash(TWA.SerializeCurrentData()))
+                        if not TWA.util.tableContains(uniqueHashList, myHash) then
+                            table.insert(uniqueHashList, myHash)
+                        end
+                    end
                     for hash, _ in pairs(TWA._syncConversations[conversationId]) do
                         if not TWA.util.tableContains(uniqueHashList, hash) then
                             table.insert(uniqueHashList, hash)
