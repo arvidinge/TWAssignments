@@ -1582,6 +1582,7 @@ function ForceSync_OnClick()
         button2 = CANCEL,
         OnAccept = function()
             TWA.sync.BroadcastFullSync()
+            TWA.sync.BroadcastFullSync_LEGACY() -- so that old clients can at least receive table data.
         end,
         timeout = 0,
         whileDead = true,
