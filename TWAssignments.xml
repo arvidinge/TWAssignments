@@ -363,7 +363,7 @@
                     <Anchors>
                         <Anchor point="TOPLEFT">
                             <Offset>
-                                <AbsDimension x="5" y="-30" />
+                                <AbsDimension x="5" y="-50" />
                             </Offset>
                         </Anchor>
                     </Anchors>
@@ -373,7 +373,7 @@
                     <Anchors>
                         <Anchor point="TOPLEFT">
                             <Offset>
-                                <AbsDimension x="86" y="-30" />
+                                <AbsDimension x="86" y="-50" />
                             </Offset>
                         </Anchor>
                     </Anchors>
@@ -383,7 +383,7 @@
                     <Anchors>
                         <Anchor point="TOPLEFT">
                             <Offset>
-                                <AbsDimension x="335" y="-30" />
+                                <AbsDimension x="335" y="-50" />
                             </Offset>
                         </Anchor>
                     </Anchors>
@@ -449,7 +449,7 @@
                     </OnLeave>
                     <OnMouseUp>
                         if arg1 == "LeftButton" then
-                            toggle_TWA_Main()
+                        toggle_TWA_Main()
                         -- else
                         -- ShowTWAMinimapDropdown()
                         end
@@ -457,14 +457,16 @@
                     </OnMouseUp>
                     <OnEvent>
                         if event then
-                            if event == "PLAYER_LOGIN" then
-                                this:ClearAllPoints()
-                                this:SetPoint('CENTER', UIParent, 'BOTTOMLEFT', unpack(TWA_POSITION or {this:GetCenter()}))
-                            end
+                        if event == "PLAYER_LOGIN" then
+                        this:ClearAllPoints()
+                        this:SetPoint('CENTER', UIParent, 'BOTTOMLEFT', unpack(TWA_POSITION or
+                        {this:GetCenter()}))
+                        end
                         end
                     </OnEvent>
                 </Scripts>
             </Button>
+            <!-- ROW 1 -->
             <!-- + -->
             <Button name="$parentAddLine" inherits="UIPanelButtonTemplate2" text="+">
                 <Size>
@@ -484,10 +486,11 @@
                     </OnClick>
                 </Scripts>
             </Button>
-            <!-- Announce -->
-            <Button name="$parentSpamRaid" inherits="UIPanelButtonTemplate2" text="Announce">
+            <!-- Load -->
+            <Button name="$parentForceSync" inherits="UIPanelButtonTemplate2"
+                text="Force Sync">
                 <Size>
-                    <AbsDimension x="80" y="20" />
+                    <AbsDimension x="100" y="20" />
                 </Size>
                 <Anchors>
                     <Anchor point="TOPLEFT">
@@ -498,58 +501,21 @@
                 </Anchors>
                 <Scripts>
                     <OnClick>
-                        SpamRaid_OnClick()
-                        CloseDropDownMenus()
-                    </OnClick>
-                </Scripts>
-            </Button>
-            <!-- Sync BW -->
-            <Button name="$parentSyncBW" inherits="UIPanelButtonTemplate2" text="Sync BW">
-                <Size>
-                    <AbsDimension x="80" y="20" />
-                </Size>
-                <Anchors>
-                    <Anchor point="TOPLEFT">
-                        <Offset>
-                            <AbsDimension x="115" y="-5" />
-                        </Offset>
-                    </Anchor>
-                </Anchors>
-                <Scripts>
-                    <OnClick>
-                        SyncBW_OnClick()
-                        CloseDropDownMenus()
-                    </OnClick>
-                </Scripts>
-            </Button>
-            <!-- Roster -->
-            <Button name="$parentRoster" inherits="UIPanelButtonTemplate2" text="Roster">
-                <Size>
-                    <AbsDimension x="80" y="20" />
-                </Size>
-                <Anchors>
-                    <Anchor point="TOPLEFT">
-                        <Offset>
-                            <AbsDimension x="200" y="-5" />
-                        </Offset>
-                    </Anchor>
-                </Anchors>
-                <Scripts>
-                    <OnClick>
-                        TWARoster_OnClick()
+                        ForceSync_OnClick()
                         CloseDropDownMenus()
                     </OnClick>
                 </Scripts>
             </Button>
             <!-- Load -->
-            <Button name="$parentLoadPreset" inherits="UIPanelButtonTemplate2" text="Load">
+            <Button name="$parentLoadPreset" inherits="UIPanelButtonTemplate2"
+                text="Load Assignments">
                 <Size>
-                    <AbsDimension x="60" y="20" />
+                    <AbsDimension x="140" y="20" />
                 </Size>
                 <Anchors>
                     <Anchor point="TOPRIGHT">
                         <Offset>
-                            <AbsDimension x="-240" y="-5" />
+                            <AbsDimension x="-320" y="-5" />
                         </Offset>
                     </Anchor>
                 </Anchors>
@@ -561,9 +527,10 @@
                 </Scripts>
             </Button>
             <!-- Save -->
-            <Button name="$parentSavePreset" inherits="UIPanelButtonTemplate2" text="Save">
+            <Button name="$parentSavePreset" inherits="UIPanelButtonTemplate2"
+                text="Save Assignments">
                 <Size>
-                    <AbsDimension x="60" y="20" />
+                    <AbsDimension x="140" y="20" />
                 </Size>
                 <Anchors>
                     <Anchor point="TOPRIGHT">
@@ -631,6 +598,64 @@
                 <Scripts>
                     <OnClick>
                         CloseTWA_OnClick()
+                        CloseDropDownMenus()
+                    </OnClick>
+                </Scripts>
+            </Button>
+            <!-- ROW 2 -->
+            <!-- Announce -->
+            <Button name="$parentSpamRaid" inherits="UIPanelButtonTemplate2" text="Announce">
+                <Size>
+                    <AbsDimension x="80" y="20" />
+                </Size>
+                <Anchors>
+                    <Anchor point="TOPLEFT">
+                        <Offset>
+                            <AbsDimension x="5" y="-25" />
+                        </Offset>
+                    </Anchor>
+                </Anchors>
+                <Scripts>
+                    <OnClick>
+                        SpamRaid_OnClick()
+                        CloseDropDownMenus()
+                    </OnClick>
+                </Scripts>
+            </Button>
+            <!-- Sync BW -->
+            <Button name="$parentSyncBW" inherits="UIPanelButtonTemplate2" text="Sync BW">
+                <Size>
+                    <AbsDimension x="80" y="20" />
+                </Size>
+                <Anchors>
+                    <Anchor point="TOPLEFT">
+                        <Offset>
+                            <AbsDimension x="85" y="-25" />
+                        </Offset>
+                    </Anchor>
+                </Anchors>
+                <Scripts>
+                    <OnClick>
+                        SyncBW_OnClick()
+                        CloseDropDownMenus()
+                    </OnClick>
+                </Scripts>
+            </Button>
+            <!-- Roster -->
+            <Button name="$parentRoster" inherits="UIPanelButtonTemplate2" text="Roster">
+                <Size>
+                    <AbsDimension x="80" y="20" />
+                </Size>
+                <Anchors>
+                    <Anchor point="TOPLEFT">
+                        <Offset>
+                            <AbsDimension x="165" y="-25" />
+                        </Offset>
+                    </Anchor>
+                </Anchors>
+                <Scripts>
+                    <OnClick>
+                        TWARoster_OnClick()
                         CloseDropDownMenus()
                     </OnClick>
                 </Scripts>

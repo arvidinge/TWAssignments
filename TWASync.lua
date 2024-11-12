@@ -110,7 +110,7 @@ function TWA.sync.processPacket(_, strPacket, _, sender)
             TWA.PopulateTWA()
             if TWA._syncConversations[headers.conversationId] then
                 TWA._syncConversations[headers.conversationId] = nil;
-                twaprint('Full sync complete')
+                twaprint('Sync complete.')
             end
             TWA._firstSyncComplete = true
             TWA._incomingFullSyncs[headers.conversationId] = nil
@@ -282,6 +282,8 @@ function TWA.sync.ConcludeSync(conversationId)
         text = TWA.MESSAGE.ConcludeSync,
         conversationId = conversationId
     })
+    TWA._firstSyncComplete = true;
+    twaprint('Sync complete.')
 end
 
 ---Ask a player that has the correct hash to broadcast full sync.
@@ -318,6 +320,7 @@ function TWA.sync.RequestFullSync()
                 if totalHashes == 0 then
                     debug('no hashes received')
                     twaprint('No response from group members.')
+                    TWA.sync.ConcludeSync(conversationId)
                     return
                 end
                 local hashCounts = {} ---@type table<string, integer>

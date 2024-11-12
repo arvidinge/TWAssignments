@@ -36,16 +36,19 @@ TWA:RegisterEvent("CHAT_MSG_ADDON")
 TWA:RegisterEvent("CHAT_MSG_WHISPER")
 TWA:RegisterEvent("PARTY_MEMBERS_CHANGED")
 
----All conditions must be satisfied to make changes:
----1. The player is in a raid group
----1. The player is either leader or assistant
----1. The leader of the raid is not offline (since he is syncmaster)
 ---@return boolean
 function TWA_CanMakeChanges()
-    if not TWA.InRaid() then
-        twaprint('You must be in a raid group to do that.')
+    if not TWA.InParty() then
+        twaprint('You must be in a group to do that.')
         return false
-    elseif not ((IsRaidLeader()) or (IsRaidOfficer())) then
+    end
+    if TWA.InParty() and not TWA.InRaid() then
+        if not IsPartyLeader() then
+            twaprint('You must be the party leader to do that.')
+            return false
+        end
+    end
+    if TWA.InRaid() and not ((IsRaidLeader()) or (IsRaidOfficer())) then
         twaprint("You need to be a raid leader or assistant to do that.")
         return false
     end
@@ -541,7 +544,7 @@ function TWA.PlayerGroupStateUpdate()
         end
         TWA.foreignRosters = {}
         TWA.persistForeignRosters()
-        
+
         setGroupState('alone')
     elseif TWA._playerGroupState == 'party' and TWA.InRaid() then
         -- party was converted to raid
@@ -1396,7 +1399,7 @@ function TWA.PopulateTWA()
 
         TWA.rows[index]:SetBackdropColor(0, 0, 0, .2);
 
-        TWA.rows[index]:SetPoint("TOP", getglobal("TWA_Main"), "TOP", 0, -25 - index * 21)
+        TWA.rows[index]:SetPoint("TOP", getglobal("TWA_Main"), "TOP", 0, -45 - index * 21)
         if not TWA.cells[index] then
             TWA.cells[index] = {}
         end
@@ -1430,7 +1433,6 @@ function TWA.PopulateTWA()
                     end
                 end
             end
-
 
             if TWA.marks[name] then
                 color = TWA.marks[name]
@@ -1498,7 +1500,7 @@ function TWA.PopulateTWA()
         end
     end
 
-    getglobal('TWA_Main'):SetHeight(50 + table.getn(TWA.data) * 21)
+    getglobal('TWA_Main'):SetHeight(70 + table.getn(TWA.data) * 21)
     TWA_DATA = TWA.data
 end
 
@@ -1569,6 +1571,24 @@ function TWCell_OnClick(id)
         CloseDropDownMenus()
         TWA.changeCell(TWA.currentRow * 100 + TWA.currentCell, "Clear")
     end
+end
+
+function ForceSync_OnClick()
+    if not TWA_CanMakeChanges() then return end
+
+    StaticPopupDialogs["TWA_FORCE_SYNC_CONFIRM"] = {
+        text = "This will overwrite everyone's table of assignments with your table. Are you sure?",
+        button1 = ACCEPT,
+        button2 = CANCEL,
+        OnAccept = function()
+            TWA.sync.BroadcastFullSync()
+        end,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        preferredIndex = 3, -- avoid some UI taint, see http://www.wowace.com/announcements/how-to-avoid-some-ui-taint/
+    }
+    StaticPopup_Show("TWA_FORCE_SYNC_CONFIRM")
 end
 
 function AddLine_OnClick()
