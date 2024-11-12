@@ -379,12 +379,11 @@ function TWA.sync.RequestFullSync()
                         end
                     end
                     if table.getn(uniqueHashList) > 1 then
-                        TWA.sync.SelectPlayerToSync(TWA._syncConversations[conversationId][biggestHashes[1]][1], conversationId)
+                        TWA.sync.SelectPlayerToSync(TWA._syncConversations[conversationId][biggestHashes[1]][1],
+                            conversationId)
                     else
                         TWA.sync.ConcludeSync(conversationId)
                     end
-
-                    
                 end
             end, TWA.SYNC_REQUEST_TIMEOUT)
         end,
@@ -397,7 +396,6 @@ end
 function TWA.sync.BroadcastFullSync(conversationId)
     -- if not IsRaidLeader() then return end
     conversationId = conversationId and conversationId or TWA.sync.newId()
-    twadebug('i broadcast sync')
     TWA.sync.SendAddonMessage({
         text = TWA.MESSAGE.FullSync .. "=start",
         conversationId = conversationId
@@ -420,6 +418,22 @@ function TWA.sync.BroadcastFullSync(conversationId)
         text = TWA.MESSAGE.FullSync .. "=end",
         conversationId = conversationId
     })
+end
+
+function TWA.sync.BroadcastFullSync_LEGACY()
+    TWA.sync.SendAddonMessage_LEGACY(TWA.MESSAGE.FullSync .. "=start")
+    for _, data in next, TWA.data do
+        TWA.sync.SendAddonMessage_LEGACY(TWA.MESSAGE.FullSync .. "=" ..
+            data[1] .. '=' ..
+            data[2] .. '=' ..
+            data[3] .. '=' ..
+            data[4] .. '=' ..
+            data[5] .. '=' ..
+            data[6] .. '=' ..
+            data[7]
+        )
+    end
+    TWA.sync.SendAddonMessage_LEGACY(TWA.MESSAGE.FullSync .. "=end")
 end
 
 ---Call to share your roster with other players. You can pass partial rosters when adding new names to save on bandwidth.
